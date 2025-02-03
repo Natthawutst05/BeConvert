@@ -1,13 +1,18 @@
 import axios from "axios";
-import { ResponseStandard } from "../models/response_standard";
+//import { ResponseStandard } from "../models/response_standard";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8011';
 
-export const registerUser = async (username: string, email: string, password: string): Promise<ResponseStandard> => {
+export const registerUser = async (userName: string, userEmail: string, userPassword: string) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/register`, { username, email, password });
-    return { ok: true, data: response.data.data, error: null };
+    const response = await axios.post(`${API_BASE_URL}/register`, {
+      userName,
+      userEmail,
+      userPassword,
+    });
+
+    return response.data;
   } catch (error: any) {
-    return { ok: false, data: null, error: error.response?.data?.message || "Registration request failed" };
+    throw new Error(error.response?.data?.message || "Registration failed");
   }
 };

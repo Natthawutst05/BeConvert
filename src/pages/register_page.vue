@@ -1,8 +1,8 @@
 <script lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useRegisterStore } from "../stores/register_store";
-import { requiredRule, emailRule, passwordRule } from "@/utils/validationRules";
+import { useRegisterStore } from "@/stores/register_store";
+import { requiredRule, emailRule, passwordRule, confirmPasswordRule } from "@/utils/validationRules";
 
 export default {
   setup() {
@@ -10,92 +10,72 @@ export default {
     const userName = ref("");
     const userEmail = ref("");
     const userPassword = ref("");
-    const valid = ref(false);
-
+    const confirmPassword = ref("");
+    const form = ref();
     const router = useRouter();
 
-    const handleRegister = async () => {
-      if (!valid.value) return;
+    // Validation Confirm Password
+    const confirmPasswordValidation = computed(() => (v: string) =>
+      confirmPasswordRule(v, userPassword.value)
+    );
 
-      const response = await registerStore.register(userName.value, userEmail.value, userPassword.value);
-      if (response.ok) {
-        alert("Registration successful!");
-        router.push("/login_page");
-      } else {
-        alert(response.error || "Registration failed.");
+    const handleRegister = async () => {
+      const result = await form.value?.validate();
+      if (!result.valid) return;
+
+      try {
+        const response = await registerStore.register(userName.value, userEmail.value, userPassword.value);
+
+        if (response.message === "Email already exists") {
+          alert("This email is already registered. Please use another email.");
+          return;
+        }
+
+        if (response.userId) {
+          alert("Registration successful!");
+          router.push("/login_page");
+        } else {
+          alert(response.message || "Registration failed.");
+        }
+      } catch (error: any) {
+        alert(error.message);
       }
     };
-
-    const goToLoginPage = () => {
-      router.push("/login_page");
-    }
 
     return {
       userName,
       userEmail,
       userPassword,
+      confirmPassword,
       requiredRule,
       emailRule,
       passwordRule,
+      confirmPasswordValidation,
       handleRegister,
-      goToLoginPage,
+      form,
     };
   },
 };
 </script>
 
 <template>
-  <v-card
-    class="mx-auto ma-6"
-    prepend-icon="$vuetify"
-    width="600"
-  >
-    <template #title>
-      <span class="font-weight-black">Register</span>
-    </template>
+  <v-container>
+    <v-card class="mx-auto mt-6" width="500">
+      <v-card-title class="text-h5 text-center">Register</v-card-title>
 
-    <v-col>
-      <v-text-field
-        v-model="userName"
-        :rules="[requiredRule]"
-        label="UserName"
-        variant="outlined"
-      />
+      <v-form ref="form">
+        <v-card-text>
+          <v-text-field v-model="userName" label="User Name" variant="outlined" :rules="[requiredRule]" />
+          <v-text-field v-model="userEmail" label="E-mail" variant="outlined" :rules="[requiredRule, emailRule]" />
+          <v-text-field v-model="userPassword" label="Password" variant="outlined" type="password" :rules="[requiredRule, passwordRule]" />
+          <v-text-field v-model="confirmPassword" label="Confirm Password" variant="outlined" type="password" :rules="[requiredRule, confirmPasswordValidation]" />
+        </v-card-text>
 
-      <v-text-field
-        v-model="userEmail"
-        :rules="[requiredRule, emailRule]"
-        label="E-mail"
-        variant="outlined"
-      />
-
-      <v-text-field
-        v-model="userPassword"
-        label="Password"
-        variant="outlined"
-        :rules="[requiredRule, passwordRule]"
-        type="password"
-        required
-      />
-
-      <v-btn
-        variant="tonal"
-        class="w-100"
-        @click="handleRegister"
-      >
-        Submit
-      </v-btn>
-      <hr
-        class="mt-2 mb-2"
-      >
-      <v-btn
-        variant="outlined"
-        class="w-100"
-        color="primary"
-        @click="goToLoginPage"
-      >
-        Back to Login
-      </v-btn>
-    </v-col>
-  </v-card>
+        <v-card-actions class="d-flex flex-column">
+          <v-btn variant="tonal" class="w-100" @click="handleRegister">Register</v-btn>
+          <v-btn class="w-100 mt-2" variant="outlined" color="grey" to="/login_page">Back to Login</v-btn>
+        </v-card-actions>
+      </v-form>
+    </v-card>
+  </v-container>
 </template>
