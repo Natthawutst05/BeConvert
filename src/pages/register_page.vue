@@ -7,14 +7,27 @@ import { requiredRule, emailRule, passwordRule, confirmPasswordRule } from "@/ut
 export default {
   setup() {
     const registerStore = useRegisterStore();
+    const router = useRouter();
+
+    const form = ref();
+    const snackbar = ref(false);
+    const snackbarMessage = ref("");
+    const snackbarColor = ref("error");
     const userName = ref("");
     const userEmail = ref("");
     const userPassword = ref("");
     const confirmPassword = ref("");
-    const form = ref();
-    const router = useRouter();
+    const userRole = ref("");
 
-    // Validation Confirm Password
+    const allRole = ref(["User", "Admin", "S-admin"]);
+
+    const showSnackbar = (message: string, color: string = "error") => {
+      snackbarMessage.value = message;
+      snackbarColor.value = color;
+      snackbar.value = true;
+    };
+
+    // Validation ConfirmPassword
     const confirmPasswordValidation = computed(() => (v: string) =>
       confirmPasswordRule(v, userPassword.value)
     );
@@ -24,18 +37,18 @@ export default {
       if (!result.valid) return;
 
       try {
-        const response = await registerStore.register(userName.value, userEmail.value, userPassword.value);
+        const response = await registerStore.register(userName.value, userEmail.value, userRole.value, userPassword.value);
 
-        if (response.message === "Email already exists") {
-          alert("This email is already registered. Please use another email.");
+        if (response.message === "มีผู้ใช้ที่อยู่ E-Mail นี้อยู่แล้ว") {
+          showSnackbar(response.message,"error");
           return;
         }
 
-        if (response.userId) {
-          alert("Registration successful!");
+        if (response.message) {
+          showSnackbar(response.message,"success");
           router.push("/login_page");
         } else {
-          alert(response.message || "Registration failed.");
+          showSnackbar("สมัคสมาชิกไม่สำเร็จ!","error");
         }
       } catch (error: any) {
         alert(error.message);
@@ -45,6 +58,7 @@ export default {
     return {
       userName,
       userEmail,
+      userRole,
       userPassword,
       confirmPassword,
       requiredRule,
@@ -53,6 +67,10 @@ export default {
       confirmPasswordValidation,
       handleRegister,
       form,
+      snackbar,
+      snackbarMessage,
+      snackbarColor,
+      allRole,
     };
   },
 };
@@ -65,10 +83,11 @@ export default {
 
       <v-form ref="form">
         <v-card-text>
-          <v-text-field v-model="userName" label="User Name" variant="outlined" :rules="[requiredRule]" />
-          <v-text-field v-model="userEmail" label="E-mail" variant="outlined" :rules="[requiredRule, emailRule]" />
-          <v-text-field v-model="userPassword" label="Password" variant="outlined" type="password" :rules="[requiredRule, passwordRule]" />
-          <v-text-field v-model="confirmPassword" label="Confirm Password" variant="outlined" type="password" :rules="[requiredRule, confirmPasswordValidation]" />
+          <v-text-field v-model="userName" required label="User Name" variant="outlined" :rules="[requiredRule]" />
+          <v-text-field v-model="userEmail" required label="E-mail" variant="outlined" :rules="[requiredRule, emailRule]" />
+          <v-select v-model="userRole" :items="allRole" required label="Role" variant="outlined" :rules="[requiredRule]" />
+          <v-text-field v-model="userPassword" required label="Password" variant="outlined" type="password" :rules="[requiredRule, passwordRule]" />
+          <v-text-field v-model="confirmPassword" required label="Confirm Password" variant="outlined" type="password" :rules="[requiredRule, confirmPasswordValidation]" />
         </v-card-text>
 
         <v-card-actions class="d-flex flex-column">
@@ -78,4 +97,11 @@ export default {
       </v-form>
     </v-card>
   </v-container>
+  <v-snackbar
+    v-model="snackbar"
+    :color="snackbarColor"
+    timeout="5000"
+  >
+    {{ snackbarMessage }}
+  </v-snackbar>
 </template>

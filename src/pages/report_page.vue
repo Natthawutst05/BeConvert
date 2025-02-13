@@ -1,24 +1,46 @@
 <script lang="ts">
-import { ref, computed, onMounted, reactive, watch  } from "vue";
-import { useReportStore, useUpdateReportStore } from '../stores/report_store';
-import { useLoginStore } from '../stores/auth_store'
-import { SelectedRow } from '../models/report_model'
-//import { requiredRule, emailRule, passwordRule } from '../utils/validationRules'
+import { ref, computed, onMounted, reactive, watch } from "vue";
+import { storeToRefs } from 'pinia';
+import 'remixicon/fonts/remixicon.css'
+import { useRouter } from "vue-router";
+import { useLoginStore, getAllUserStore } from "../stores/auth_store";
+import { useReportStore } from "../stores/report_store";
+import { SelectedRow } from '@/models/report_model';
+import { requiredRule } from "@/utils/validationRules";
 
 export default {
   setup() {
+    const router = useRouter();
+    const allUserStore = getAllUserStore();
     const reportStore = useReportStore();
-    const updateDataStore = useUpdateReportStore();
+    const { filteredReportData, allStatus, reportData, updateData } = storeToRefs(reportStore);
     const loginStore = useLoginStore();
+    const form = ref();
+
+    //Snackbar
+    const snackbar = ref(false);
+    const snackbarMessage = ref("");
+    const snackbarColor = ref("error");
+
+    const showSnackbar = (message: string, color: string = "error") => {
+      snackbarMessage.value = message;
+      snackbarColor.value = color;
+      snackbar.value = true;
+    };
 
     // Dialog Controls
-    const isDialogActive = ref(false);
-    const dateProcessDialog = ref(false)
-    const assignDateStartDialog = ref(false)
-    const assignDateEndDialog = ref(false)
+    const activeDialogId = ref<number | null>(null);
+    const dateProcessDialog = ref(false);
+    const assignDateStartDialog = ref(false);
+    const assignDateEndDialog = ref(false);
+    const isDialogOpen = computed(() => activeDialogId.value !== null);
 
     //ตรวจสอบ Role
-    const isAdmin = computed(() => loginStore.authUser?.userRole === "admin");
+    const isAdmin = computed(() => loginStore.authUser?.userRole === "Admin");
+    const isSaveDisabled = computed(() => {
+      return loginStore.authUser?.userRole === "User" && loginStore.authUser?.userName !== selectedRow.assignTo;
+    });
+
     //กำหนดให้ SqlQuery ไม่เกิน 25 ตัวอักษร
     const truncateSQLQuery = (query: string) =>
       query.length > 25 ? query.substring(0, 25) + "..." : query;
@@ -26,42 +48,93 @@ export default {
       alert(`Full SQL Query: ${query}`);
     };
 
-    // Status
-    const status = ref([
-      'Wait',
-      'Confirm',
-      'Process',
-      'Cancel',
-    ])
+    // Status List
+    const status = ref(["Wait", "Confirm", "Process", "Cancel"]);
+    // ActiveCard Status
+    const clickActiveCard = (status: string) => {
+      reportStore.setActiveCard(status);
+    };
 
-    // User Mockup
-    const userlist = ref([
-      'user1',
-      'user2',
-      'admin1',
-      'admin2',
-    ])
+    // Filter service,user,month,year
+    const selectedService = ref<string | null>(null);
+    const selectedUser = ref<string | null>(null);
+    const selectedMonth = ref<number | null>(null);
+    const selectedYear = ref<number | null>(null);
+    const applyFilter = () => {
+      reportStore.setFilter(selectedService.value, selectedUser.value, selectedMonth.value, selectedYear.value);
+    };
+    watch(() => selectedService.value, () => applyFilter());
+    watch(() => selectedUser.value, () => applyFilter());
+    watch(() => selectedMonth.value, () => applyFilter());
+    watch(() => selectedYear.value, () => applyFilter());
+
+    // Service List
+    const servicelist = ref<string[]>([]);
+
+    // User List
+    const userlist = ref<string[]>([]);
+
+    // Month List
+    const months = ref([
+      { text: "January", value: 1 },
+      { text: "February", value: 2 },
+      { text: "March", value: 3 },
+      { text: "April", value: 4 },
+      { text: "May", value: 5 },
+      { text: "June", value: 6 },
+      { text: "July", value: 7 },
+      { text: "August", value: 8 },
+      { text: "September", value: 9 },
+      { text: "October", value: 10 },
+      { text: "November", value: 11 },
+      { text: "December", value: 12 },
+    ]);
+
+    // Year List
+    const years = computed(() => {
+      const currentYear = new Date().getFullYear();
+      return Array.from({ length: currentYear - 2022 + 1 }, (_, i) => 2022 + i);
+    });
+
+    // User List for assign
+    const assignUserlist = ref<string[]>([]);
 
     // DataTable Header
     const headers = [
-      { title: 'No.', key: 'index'},
-      { title: 'SQL ID', key: 'fileId' },
-      { title: 'SQL Time', key: 'fileTime' },
-      { title: 'Service', key: 'sqlService' },
-      { title: 'Process ID', key: 'processId' },
-      { title: 'Query Time', key: 'queryTime' },
-      { title: 'Lock Time', key: 'lockTime' },
-      { title: 'Rows Sent', key: 'rowsSent' },
-      { title: 'Rows Examined', key: 'rowsExamined' },
-      { title: 'Set Timestamp', key: 'setTimestamp' },
-      { title: 'SQL Query', key: 'sqlBefore' },
-      { title: 'Created At', key: 'createdAt' },
-      { title: 'Updated At', key: 'updatedAt' },
-      { title: 'Created User', key: 'createdUser' },
-      { title: 'Updated User', key: 'updatedUser' },
-      { title: 'Status', key: 'fileStatus' },
-      { title: 'Action', key: 'action' },
-    ]
+      { title: "SQL ID", key: "fileId" },
+      { title: "SQL Time", key: "fileTime" },
+      { title: "Service", key: "sqlService" },
+      { title: "Process ID", key: "processId" },
+      { title: "Query Time", key: "queryTime" },
+      { title: "Rows Sent", key: "rowsSent" },
+      { title: "Rows Examined", key: "rowsExamined" },
+      { title: "Set Timestamp", key: "setTimestamp" },
+      { title: "SQL Query", key: "sqlBefore" },
+      { title: "Assign User", key: "createdUser" },
+      { title: "Assign To User", key: "updatedUser" },
+      { title: "Status", key: "fileStatus" },
+      { title: "Action", key: "action" },
+    ];
+
+    // Crad Status
+    const activeCard = ref(null);
+    const getCardColor = (cardTitle) => {
+      if (activeCard.value === cardTitle) {
+        switch (cardTitle) {
+          case 'Wait':
+            return 'primary';
+          case 'Confirm':
+            return 'success';
+          case 'Process':
+            return 'warning';
+          case 'Cancel':
+            return 'error';
+          default:
+            return '';
+        }
+      }
+      return '';
+    };
 
     // State สำหรับข้อมูล row ที่เลือก
     const selectedRow = reactive<SelectedRow>({
@@ -86,8 +159,8 @@ export default {
     });
 
     const resetSelectedRow = () => {
-      Object.keys(selectedRow).forEach(key => {
-        selectedRow[key] = "";
+      Object.keys(selectedRow).forEach((key) => {
+        selectedRow[key] = key === "fileId" ? null : "";
       });
     };
 
@@ -110,38 +183,65 @@ export default {
     };
 
     // ฟังก์ชันสำหรับตั้งค่าข้อมูล row ที่เลือก
-    const selectRow = (row: any) => {
-      const updateItem = updateDataStore.updateData.find(update => update.fileId === row.fileId);
-      Object.assign(selectedRow, { ...row, ...updateItem });
-
-      dateProcessModel.value = selectedRow.dateProcess ? new Date(selectedRow.dateProcess) : null;
-      dateAssignStartModel.value = selectedRow.assignDateStart ? new Date(selectedRow.assignDateStart) : null;
-      dateAssignEndModel.value = selectedRow.assignDateEnd ? new Date(selectedRow.assignDateEnd) : null;
-
-      isDialogActive.value = true;
-    };
-
-    const previousFileStatus = ref(selectedRow.fileStatus); // เก็บสถานะก่อนหน้า
-    watch(() => selectedRow.fileStatus, (newStatus, oldStatus) => {
-      if (newStatus !== oldStatus && !selectedRow.fileComment) {
-        //alert("กรุณากรอก Comment เมื่อเปลี่ยน Status");
-      }
+    const updateDataMap = computed(() => {
+      return new Map(reportStore.updateData.map((update) => [update.fileId, update]));
     });
 
-    // เพิ่ม rules สำหรับ v-text-field ของ fileComment
+    const selectRow = (row: any) => {
+      activeDialogId.value = row.fileId
+      const updateItem = updateDataMap.value.get(row.fileId) || {};
+      Object.assign(selectedRow, { ...row, ...updateItem });
+
+      // selectedRow.fileComment = "";
+      previousFileStatus.value = selectedRow.fileStatus;
+
+      dateProcessModel.value = selectedRow.dateProcess
+        ? new Date(selectedRow.dateProcess)
+        : null;
+      dateAssignStartModel.value = selectedRow.assignDateStart
+        ? new Date(selectedRow.assignDateStart)
+        : null;
+      dateAssignEndModel.value = selectedRow.assignDateEnd
+        ? new Date(selectedRow.assignDateEnd)
+        : null;
+    };
+
+    // ตรวจสอบว่า fileStatus มีการเปลี่ยนแปลงหรือไม่
+    const previousFileStatus = ref(selectedRow.fileStatus);
+    const isFileStatusChanged = computed(() => {
+      return selectedRow.fileStatus !== previousFileStatus.value;
+    });
+    watch(
+      () => selectedRow.fileStatus,
+      (newStatus, oldStatus) => {
+        if (oldStatus !== undefined && newStatus !== oldStatus) {
+          previousFileStatus.value = oldStatus;
+          selectedRow.fileComment = "";
+        }
+      }
+    );
+
+    // Rules สำหรับ fileComment
     const fileCommentRules = computed(() => {
       return [
-        value => {
-          if (!value && selectedRow.fileStatus && selectedRow.fileStatus !== 'Wait') {
-            return "กรุณากรอก Comment เมื่อสถานะเปลี่ยนแปลง";
+        (value) => {
+          if (isFileStatusChanged.value && !value) {
+            return "กรุณากรอก Comment เมื่อแก้ไขสถานะ!";
           }
           return true;
-        }
+        },
       ];
     });
 
     const saveDialogData = async () => {
       if (!selectedRow.fileId) return;
+      const result = await form.value?.validate();
+      if (!result.valid) return;
+
+      if (isFileStatusChanged.value && !selectedRow.fileComment) {
+        showSnackbar("กรุณากรอกรายละเอียด เมื่อแก้ไขข้อมูล!", "error");
+        return;
+      }
 
       const payload = {
         fileId: selectedRow.fileId,
@@ -161,59 +261,72 @@ export default {
         console.log("Payload:", JSON.stringify(payload, null, 2));
 
         await reportStore.saveReportStatus(payload);
-        //console.log("reportData ก่อนอัปเดต:", JSON.stringify(reportStore.reportData, null, 2));
 
         // อัปเดตข้อมูลเฉพาะแถวที่มีการแก้ไข
-        const index = reportStore.reportData.findIndex(item => item.fileId === selectedRow.fileId);
+        const index = reportStore.reportData.findIndex(
+          (item) => item.fileId === selectedRow.fileId
+        );
         if (index !== -1) {
           Object.assign(reportStore.reportData[index], payload);
-          console.log("อัปเดตข้อมูลใน reportData:", JSON.stringify(reportStore.reportData[index], null, 2));
+          console.log(
+            "อัปเดตข้อมูลใน reportData:",
+            JSON.stringify(reportStore.reportData[index], null, 2)
+          );
         }
 
-        //await reportStore.fetchReportData();
-        await updateDataStore.fetchReportUpdateData();
-        updateDataTable();
-        //console.log("reportData หลังอัปเดต:", JSON.stringify(reportStore.reportData, null, 2));
+        await reportStore.fetchAllReportData();
 
         console.log("Data saved successfully!");
-        isDialogActive.value = false;
+        showSnackbar("บันทึกข้อมูลสำเร็จ!", "success");
+        activeDialogId.value = null;
       } catch (error) {
         console.error("Error saving data:", error);
-        alert("Error saving data!");
+        showSnackbar("กรุณาใส่ข้อมูลให้ครบถ้วน!", "error");
       }
     };
 
-    // ฟังก์ชันอัปเดต DataTable
-    const updateDataTable = () => {
-      reportStore.reportData = reportStore.reportData.map(reportItem => {
-        const updateItem = updateDataStore.updateData.find(update => update.fileId === reportItem.fileId);
-        return {
-          ...reportItem,
-          sqlBefore: updateItem?.sqlAfter || reportItem.sqlBefore,
-          fileStatus: updateItem?.fileStatus || reportItem.fileStatus || "Wait",
-        };
-      });
+    // แปลง TimeStamp เป็น DateTime
+    const convertTimestampToDateTime = (timestamp: number) => {
+      if (!timestamp) return "N/A";
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+    };
+
+    const handleLogout = () => {
+      loginStore.$reset(); // ล้างข้อมูล authStore ทั้งหมด
+      router.push("/login_page");
+    };
+
+    const getStatusCountText = computed(() => (status) => {
+      const count = allStatus.value[`status${status}`];
+      return `Total: ${count || 0}`;
+    });
+
+    const resetDataFilter = async () => {
+      selectedService.value = null;
+      selectedUser.value = null;
+      selectedMonth.value = null;
+      selectedYear.value = null;
+
+      reportStore.setActiveCard(null);
+      reportStore.setFilter(null, null, null, null);
     };
 
     onMounted(async () => {
       try {
-        await reportStore.fetchReportData();
-        await updateDataStore.fetchReportUpdateData();
-        // reportStore.reportData = reportStore.reportData.map(item => ({
-        //   ...item,
-        //   fileStatus: item.fileStatus || "Wait",
-        // }));
-
-        updateDataTable();
+        await reportStore.fetchAllReportData();
+        await allUserStore.fetchAllUserData();
+        assignUserlist.value = allUserStore.authUser.map((user) => user.userName);
+        userlist.value = Array.from(new Set(updateData.value.map(item => item.assignTo)));
+        servicelist.value = Array.from(new Set(reportData.value.map(item => item.sqlService)));
       } catch (error) {
         console.error("Error loading data:", error);
       }
     });
 
     return {
-      reportData: computed(() =>
-        reportStore.reportData.map((item, index) => ({ ...item, index: index + 1 }))
-      ),
+      form,
+      requiredRule,
       selectedRow,
       selectRow,
       headers,
@@ -224,7 +337,10 @@ export default {
       isAdmin,
       truncateSQLQuery,
       showFullSQLQuery,
-      isDialogActive,
+      snackbar,
+      snackbarColor,
+      snackbarMessage,
+      isDialogOpen,
       dateProcessDialog,
       assignDateStartDialog,
       assignDateEndDialog,
@@ -235,327 +351,431 @@ export default {
       handleAssignDateStartChange,
       handleAssignDateEndChange,
       fileCommentRules,
-      previousFileStatus
+      handleLogout,
+      convertTimestampToDateTime,
+      isSaveDisabled,
+      activeCard,
+      getCardColor,
+      activeDialogId,
+      clickActiveCard,
+      filteredReportData,
+      allStatus,
+      getStatusCountText,
+      months,
+      years,
+      servicelist,
+      selectedService,
+      selectedUser,
+      selectedMonth,
+      selectedYear,
+      applyFilter,
+      assignUserlist,
+      resetDataFilter,
     };
   },
 };
 </script>
 
 <template>
-  <v-col cols="12">
-    <h1 class="text-2xl font-bold mb-4">
-      Report
-    </h1>
-
-    <!-- Data Table -->
-    <v-data-table
-      :items="reportData"
-      :headers="headers"
-      item-value="index"
-      class="elevation-1"
+  <v-col cols="12" class="pa-6">
+    <h1 class="text-2xl font-bold mb-4">Report</h1>
+    <!-- Status Cards -->
+    <v-row
+      class="pb-6"
     >
-      <template #item.sqlBefore="{ item }">
-        <span v-if="item.sqlBefore.length <= 25">
-          {{ item.sqlBefore }}
-        </span>
-        <span v-else>
-          {{ truncateSQLQuery(item.sqlBefore) }}
-          <v-tooltip bottom>
-            <template #activator="{ props }">
-              <span
-                class="text-blue-500 underline cursor-pointer"
-                v-bind="props"
-              >
-                More
-              </span>
-            </template>
-            <span>{{ item.sqlBefore }}</span>
-          </v-tooltip>
-        </span>
-      </template>
-
-      <template #item.action="{ item }">
-        <!--Dialog-->
-        <v-dialog max-width="1300">
-          <template #activator="{ props: activatorManagement }">
-            <v-btn
-              icon="$vuetify"
-              v-bind="activatorManagement"
-              @click="selectRow(item)"
-            />
+      <v-col cols="12" md="3">
+        <v-card
+          title="Wait"
+          :subtitle="getStatusCountText('Wait')"
+          :variant="activeCard === 'Wait' ? 'tonal' : 'elevated'"
+          :color="getCardColor('Wait')"
+          @click="clickActiveCard('Wait')"
+        >
+          <p class="pa-4">Click</p>
+          <template v-slot:append>
+            <v-avatar color="primary" rounded>
+              <v-icon class="ri-chat-3-line"></v-icon>
+            </v-avatar>
           </template>
-          <!--Dialog Content-->
-          <template #default="{ isActive }">
-            <v-card title="Management">
-              <v-row>
-                <v-col
-                  cols="3"
-                  class="pl-9"
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="3">
+        <v-card
+          title="Confirm"
+          :subtitle="getStatusCountText('Confirm')"
+          :variant="activeCard === 'Confirm' ? 'tonal' : 'elevated'"
+          :color="getCardColor('Confirm')"
+          @click="clickActiveCard('Confirm')"
+        >
+          <p class="pa-4">Click</p>
+          <template v-slot:append>
+            <v-avatar color="success" rounded>
+              <v-icon class="ri-chat-3-line"></v-icon>
+            </v-avatar>
+          </template>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="3">
+        <v-card
+          title="Process"
+          :subtitle="getStatusCountText('Process')"
+          :variant="activeCard === 'Process' ? 'tonal' : 'elevated'"
+          :color="getCardColor('Process')"
+          @click="clickActiveCard('Process')"
+        >
+          <p class="pa-4">Click</p>
+          <template v-slot:append>
+            <v-avatar color="warning" rounded>
+              <v-icon class="ri-chat-3-line"></v-icon>
+            </v-avatar>
+          </template>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="3" min-width="200px">
+        <v-card
+          title="Cancel"
+          :subtitle="getStatusCountText('Cancel')"
+          :variant="activeCard === 'Cancel' ? 'tonal' : 'elevated'"
+          :color="getCardColor('Cancel')"
+          @click="clickActiveCard('Cancel')"
+        >
+          <p class="pa-4">Click</p>
+          <template v-slot:append>
+            <v-avatar color="error" rounded>
+              <v-icon class="ri-chat-3-line"></v-icon>
+            </v-avatar>
+          </template>
+        </v-card>
+      </v-col>
+    </v-row>
+    <!-- Card Content -->
+    <v-card>
+      <v-row class="pa-4">
+        <v-col cols="3">
+          <v-select
+            label="Service"
+            variant="outlined"
+            :items="servicelist"
+            v-model="selectedService"
+          />
+        </v-col>
+        <v-col cols="3">
+          <v-select
+            label="User"
+            variant="outlined"
+            :items="userlist"
+            v-model="selectedUser"
+          />
+        </v-col>
+        <v-col cols="3">
+          <v-select
+            label="Months"
+            variant="outlined"
+            :items="months"
+            item-title="text"
+            item-value="value"
+            v-model="selectedMonth"
+          />
+        </v-col>
+        <v-col cols="2">
+          <v-select
+            label="Years"
+            variant="outlined"
+            :items="years"
+            v-model="selectedYear"
+          />
+        </v-col>
+        <v-col cols="1">
+          <v-btn
+            height="56px"
+            @click="resetDataFilter"
+          >
+            <i class="ri-loop-left-line mr-2"></i> Clear
+          </v-btn>
+        </v-col>
+      </v-row>
+      <!-- Data Table -->
+      <v-data-table
+        :items="filteredReportData"
+        :headers="headers"
+        item-value="index"
+        class="elevation-1"
+      >
+        <!-- Timestamp -->
+        <template #item.setTimestamp="{ item }">
+          <span>{{ convertTimestampToDateTime(item.setTimestamp) }}</span>
+        </template>
+        <!-- Sql Query -->
+        <template #item.sqlBefore="{ item }">
+          <span v-if="item.sqlBefore.length <= 25">
+            {{ item.sqlBefore }}
+          </span>
+          <span v-else>
+            {{ truncateSQLQuery(item.sqlBefore) }}
+            <v-tooltip bottom>
+              <template #activator="{ props }">
+                <span
+                  class="text-blue-500 underline cursor-pointer"
+                  v-bind="props"
                 >
-                  <v-text-field
-                    label="SQL ID"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.fileId"
-                  />
-                </v-col>
-                <v-col
-                  cols="3"
-                >
-                  <v-text-field
-                    label="SQL Time"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.fileTime"
-                  />
-                </v-col>
-                <v-col
-                  cols="3"
-                >
-                  <v-text-field
-                    label="SQL Service"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.sqlService"
-                  />
-                </v-col>
-                <v-col
-                  cols="3"
-                  class="pr-9"
-                >
-                  <v-text-field
-                    label="Process ID"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.processId"
-                  />
-                </v-col>
-              </v-row>
-              <v-row>
-                <v-col
-                  cols="3"
-                  class="pl-9"
-                >
-                  <v-text-field
-                    label="Query Time"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.queryTime"
-                  />
-                </v-col>
-                <v-col
-                  cols="3"
-                >
-                  <v-text-field
-                    label="Lock Time"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.lockTime"
-                  />
-                </v-col>
-                <v-col
-                  cols="3"
-                >
-                  <v-text-field
-                    label="Rows Sent"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.rowsSent"
-                  />
-                </v-col>
-                <v-col
-                  cols="3"
-                  class="pr-9"
-                >
-                  <v-text-field
-                    label="Rows Examined"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.rowsExamined"
-                  />
-                </v-col>
-              </v-row>
-              <v-row>
-                <v-col
-                  cols="4"
-                  class="pl-9"
-                >
-                  <v-text-field
-                    label="Set Timestamp"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.setTimestamp"
-                  />
-                </v-col>
-                <v-col
-                  cols="4"
-                >
-                  <v-text-field
-                    label="Created Date"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.createdAt"
-                  />
-                </v-col>
-                <v-col
-                  cols="4"
-                  class="pr-9"
-                >
-                  <v-text-field
-                    label="Created User"
-                    variant="outlined"
-                    disabled
-                    v-model="selectedRow.createdUser"
-                  />
-                </v-col>
-              </v-row>
-              <!-- Admin only -->
-              <template v-if="isAdmin">
-              <v-col
-                class="pl-6 pr-6 pt-0 pb-2"
-              >
-                <hr>
-              </v-col>
-              <v-col
-                class="pl-6 pr-6 pb-6"
-              >
-                <h3>Admin Management</h3>
-              </v-col>
-              <v-row>
-                <v-col
-                  cols="4"
-                  class="pl-9"
-                >
-                  <v-select
-                    label="Assign To"
-                    variant="outlined"
-                    :items="userlist"
-                    v-model="selectedRow.assignTo"
-                  />
-                </v-col>
-                <v-col
-                  cols="4"
-                >
-                  <v-text-field
-                    label="Assign Start"
-                    variant="outlined"
-                    v-model="selectedRow.assignDateStart"
-                    @click="assignDateStartDialog = true"
-                  />
-                  <!-- Dialog DatePicker -->
-                  <v-dialog v-model="assignDateStartDialog" width="auto">
-                    <v-card max-width="400">
-                      <v-date-picker
-                        v-model="dateAssignStartModel"
-                        elevation="24"
-                        @update:model-value="handleAssignDateStartChange"
-                      />
-                    </v-card>
-                  </v-dialog>
-                </v-col>
-                <v-col
-                  cols="4"
-                  class="pr-9"
-                >
-                  <v-text-field
-                    label="Assign End"
-                    variant="outlined"
-                    v-model="selectedRow.assignDateEnd"
-                    @click="assignDateEndDialog = true"
-                  />
-                  <!-- Dialog DatePicker -->
-                  <v-dialog v-model="assignDateEndDialog" width="auto">
-                    <v-card max-width="400">
-                      <v-date-picker
-                        v-model="dateAssignEndModel"
-                        elevation="24"
-                        @update:model-value="handleAssignDateEndChange"
-                      />
-                    </v-card>
-                  </v-dialog>
-                </v-col>
-              </v-row>
-              <v-col
-                class="pl-6 pr-6 pt-2 pb-4"
-              >
-                <hr>
-              </v-col>
+                  More
+                </span>
               </template>
-              <v-col
-                cols="12"
-                class="pl-6 pr-6"
-              >
-                <v-text-field
-                  label="SQL Query"
-                  variant="outlined"
-                  v-model="selectedRow.sqlBefore"
-                />
-              </v-col>
-              <v-row>
-                <v-col
-                  cols="4"
-                  class="pl-9"
-                >
-                  <v-select
-                    label="Status"
-                    variant="outlined"
-                    :items="status"
-                    v-model="selectedRow.fileStatus"
-                  />
-                </v-col>
-                <v-col
-                  cols="8"
-                  class="pr-9"
-                >
-                  <v-text-field
-                    label="Date Process"
-                    variant="outlined"
-                    v-model="selectedRow.dateProcess"
-                    @click="dateProcessDialog = true"
-                  />
-                  <!-- Dialog DatePicker -->
-                  <v-dialog v-model="dateProcessDialog" width="auto">
-                    <v-card max-width="400">
-                      <v-date-picker
-                        v-model="dateProcessModel"
-                        elevation="24"
-                        @update:model-value="handleDateChange"
+              <span>{{ item.sqlBefore }}</span>
+            </v-tooltip>
+          </span>
+        </template>
+        <!-- Action Dialog -->
+        <template #item.action="{ item }">
+          <v-btn
+            icon="$vuetify"
+            @click="selectRow(item)"
+          />
+          <v-dialog v-if="activeDialogId === item.fileId" v-model="isDialogOpen" max-width="1300">
+            <!--Dialog Content-->
+            <template v-slot:default>
+              <v-card title="Management">
+                <v-row>
+                  <v-col cols="3" class="pl-9">
+                    <v-text-field
+                      label="SQL ID"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.fileId"
+                    />
+                  </v-col>
+                  <v-col cols="3">
+                    <v-text-field
+                      label="SQL Time"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.fileTime"
+                    />
+                  </v-col>
+                  <v-col cols="3">
+                    <v-text-field
+                      label="SQL Service"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.sqlService"
+                    />
+                  </v-col>
+                  <v-col cols="3" class="pr-9">
+                    <v-text-field
+                      label="Process ID"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.processId"
+                    />
+                  </v-col>
+                </v-row>
+                <v-row>
+                  <v-col cols="3" class="pl-9">
+                    <v-text-field
+                      label="Query Time"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.queryTime"
+                    />
+                  </v-col>
+                  <v-col cols="3">
+                    <v-text-field
+                      label="Lock Time"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.lockTime"
+                    />
+                  </v-col>
+                  <v-col cols="3">
+                    <v-text-field
+                      label="Rows Sent"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.rowsSent"
+                    />
+                  </v-col>
+                  <v-col cols="3" class="pr-9">
+                    <v-text-field
+                      label="Rows Examined"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.rowsExamined"
+                    />
+                  </v-col>
+                </v-row>
+                <v-row>
+                  <v-col cols="4" class="pl-9">
+                    <v-text-field
+                      label="Set Timestamp"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.setTimestamp"
+                    />
+                  </v-col>
+                  <v-col cols="4">
+                    <v-text-field
+                      label="Created Date"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.createdAt"
+                    />
+                  </v-col>
+                  <v-col cols="4" class="pr-9">
+                    <v-text-field
+                      label="Created User"
+                      variant="outlined"
+                      disabled
+                      v-model="selectedRow.createdUser"
+                    />
+                  </v-col>
+                </v-row>
+                <v-form ref="form">
+                  <!-- Admin only -->
+                  <template v-if="isAdmin">
+                    <v-col class="pl-6 pr-6 pt-0 pb-2">
+                      <hr />
+                    </v-col>
+                    <v-col class="pl-6 pr-6 pb-6">
+                      <h3>Admin Management</h3>
+                    </v-col>
+                    <v-row>
+                      <v-col cols="4" class="pl-9">
+                        <v-select
+                          label="Assign To"
+                          variant="outlined"
+                          :items="assignUserlist"
+                          v-model="selectedRow.assignTo"
+                          :rules="[requiredRule]"
+                        />
+                      </v-col>
+                      <v-col cols="4">
+                        <v-text-field
+                          label="Assign Start"
+                          variant="outlined"
+                          v-model="selectedRow.assignDateStart"
+                          :rules="[requiredRule]"
+                          @click="assignDateStartDialog = true"
+                        />
+                        <!-- Dialog DatePicker -->
+                        <v-dialog v-model="assignDateStartDialog" width="auto">
+                          <v-card max-width="400">
+                            <v-date-picker
+                              v-model="dateAssignStartModel"
+                              elevation="24"
+                              @update:model-value="handleAssignDateStartChange"
+                            />
+                          </v-card>
+                        </v-dialog>
+                      </v-col>
+                      <v-col cols="4" class="pr-9">
+                        <v-text-field
+                          label="Assign End"
+                          variant="outlined"
+                          v-model="selectedRow.assignDateEnd"
+                          :rules="[requiredRule]"
+                          @click="assignDateEndDialog = true"
+                        />
+                        <!-- Dialog DatePicker -->
+                        <v-dialog v-model="assignDateEndDialog" width="auto">
+                          <v-card max-width="400">
+                            <v-date-picker
+                              v-model="dateAssignEndModel"
+                              elevation="24"
+                              @update:model-value="handleAssignDateEndChange"
+                            />
+                          </v-card>
+                        </v-dialog>
+                      </v-col>
+                    </v-row>
+                    <v-col class="pl-6 pr-6 pt-2 pb-4">
+                      <hr />
+                    </v-col>
+                  </template>
+                  <v-col cols="12" class="pl-6 pr-6">
+                    <v-text-field
+                      label="SQL Query"
+                      variant="outlined"
+                      v-model="selectedRow.sqlBefore"
+                      :rules="[requiredRule]"
+                    />
+                  </v-col>
+                  <v-row>
+                    <v-col cols="4" class="pl-9">
+                      <v-select
+                        label="Status"
+                        variant="outlined"
+                        :items="status"
+                        v-model="selectedRow.fileStatus"
+                        :rules="[requiredRule]"
                       />
-                    </v-card>
-                  </v-dialog>
-                </v-col>
-              </v-row>
-              <v-col
-                cols="12"
-                class="pl-6 pr-6"
-              >
-                <v-text-field
-                  label="Comment"
-                  variant="outlined"
-                  v-model="selectedRow.fileComment"
-                  :rules="fileCommentRules"
-                  ref="fileCommentField"
-                />
-              </v-col>
-              <!-- Save&Cancel BTN -->
-              <v-card-actions>
-                <v-spacer />
-                <v-btn
-                  text="Save"
-                  variant="text"
-                  @click="saveDialogData().then(() => isActive.value = false)"
-                />
-                <v-btn
-                  color="surface-variant"
-                  text="Cancel"
-                  variant="flat"
-                  @click="isActive.value = false; resetSelectedRow()"
-                />
-              </v-card-actions>
-            </v-card>
-          </template>
-        </v-dialog>
-      </template>
-    </v-data-table>
+                    </v-col>
+                    <v-col cols="8" class="pr-9">
+                      <v-text-field
+                        label="Date Process"
+                        variant="outlined"
+                        v-model="selectedRow.dateProcess"
+                        :rules="[requiredRule]"
+                        @click="dateProcessDialog = true"
+                      />
+                      <!-- Dialog DatePicker -->
+                      <v-dialog v-model="dateProcessDialog" width="auto">
+                        <v-card max-width="400">
+                          <v-date-picker
+                            v-model="dateProcessModel"
+                            elevation="24"
+                            @update:model-value="handleDateChange"
+                          />
+                        </v-card>
+                      </v-dialog>
+                    </v-col>
+                  </v-row>
+                  <v-col cols="12" class="pl-6 pr-6">
+                    <v-text-field
+                      label="Comment"
+                      variant="outlined"
+                      v-model="selectedRow.fileComment"
+                      :rules="fileCommentRules"
+                      ref="fileCommentField"
+                    />
+                  </v-col>
+                </v-form>
+
+                <v-card-actions class="pa-6 pt-0">
+                  <v-spacer />
+                  <v-btn
+                    text="Save"
+                    variant="text"
+                    @click="saveDialogData();"
+                    :disabled="isSaveDisabled"
+                  />
+                  <v-btn
+                    color="error"
+                    text="Cancel"
+                    variant="outlined"
+                    @click="
+                      activeDialogId = null
+                      resetSelectedRow();
+                    "
+                  />
+                </v-card-actions>
+              </v-card>
+            </template>
+          </v-dialog>
+        </template>
+      </v-data-table>
+    </v-card>
+    <v-col
+      cols="12"
+      class="pa-0 pt-4 pb-4"
+    >
+      <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
+        LOGOUT
+      </v-btn>
+    </v-col>
   </v-col>
+
+  <!-- Snackbar -->
+  <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="5000">
+    {{ snackbarMessage }}
+  </v-snackbar>
 </template>

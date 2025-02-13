@@ -41,7 +41,7 @@ export const useLoginStore = defineStore("login", {
   },
 });
 
-export const getAllUserStore = defineStore('updateData', {
+export const getAllUserStore = defineStore('alluser', {
   state: () => ({
     authUser: [] as AuthModel[],
   }),

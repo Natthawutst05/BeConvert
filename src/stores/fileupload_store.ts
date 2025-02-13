@@ -19,7 +19,7 @@ export const useFileUploadStore = defineStore("fileupload", () => {
       return response; // Return response to the caller (e.g., frontend component)
     } catch (error: any) {
       console.error("Error uploading file data:", error.message);
-      throw new Error(error.message || "Failed to upload file data.");
+      throw new Error(error.message || "อัพโหลดข้อมูลไม่สำเร็จ!");
     }
   };
 

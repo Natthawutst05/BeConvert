@@ -1,5 +1,6 @@
 <script lang="ts">
-import { storeToRefs } from "pinia";
+import { ref } from "vue";
+import { storeToRefs, } from "pinia";
 import { useRouter } from "vue-router";
 import { useFileUploadStore } from "../stores/fileupload_store";
 import { useLoginStore } from '../stores/auth_store'
@@ -11,6 +12,17 @@ export default {
     const { setFileRows, uploadData } = useFileUploadStore();
     const { fileRows } = storeToRefs(fileUploadStore);
     const router = useRouter();
+
+    //SnackBar
+    const snackbar = ref(false);
+    const snackbarMessage = ref("");
+    const snackbarColor = ref("error");
+
+    const showSnackbar = (message: string, color: string = "error") => {
+      snackbarMessage.value = message;
+      snackbarColor.value = color;
+      snackbar.value = true;
+    };
 
     const headers = [
       { title: 'No.', key: 'no'},
@@ -25,16 +37,21 @@ export default {
       { title: 'SQL Query', key: 'sqlBefore' },
     ]
 
-    const goToReportPage = () => {
-      router.push("/report_page");
-    };
-
     const truncateSQLQuery = (query: string) =>
       query.length > 25 ? query.substring(0, 25) + "..." : query;
 
     const showFullSQLQuery = (query: string) => {
-      alert(`Full SQL Query: ${query}`);
+      showSnackbar(`Full SQL Query: ${query}`, "indigo");
     };
+
+    const sqlKeywords = [
+      "SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE", "WITH",
+      "EXPLAIN", "SHOW", "DESCRIBE", "USE", "GRANT", "REVOKE", "BEGIN", "COMMIT", "ROLLBACK",
+      "SAVEPOINT", "ADD",
+      "select", "insert", "update", "delete", "create", "alter", "drop", "truncate", "with",
+      "explain", "show", "describe", "use", "grant", "revoke", "begin", "commit", "rollback",
+      "savepoint", "add"
+    ];
 
     const prepareDataForUpload = () =>
       fileRows.value.map((row) => ({
@@ -54,7 +71,7 @@ export default {
     const handleFileUpload = (event) => {
       const file = event.target.files[0];
       if (!file) {
-        alert("Please select a file.");
+        showSnackbar("Please select a file.", "error");
         return;
       }
 
@@ -98,7 +115,7 @@ export default {
               currentRow.fileTime = line.replace("# Time:", "").trim();
               collectingQuery = false;
             } else if (line.startsWith("# User@Host:")) {
-              const match = line.match(/# User@Host: (.+?)\s+@.+?Id: (\d+)/);
+              const match = line.match(/# User@Host:\s*([\w\[\]]+)\s+@\s+\[.*?\]\s+Id:\s*(\d+)/);
               if (match) {
                 currentRow.sqlService = match[1].trim();
                 currentRow.processId = match[2].trim();
@@ -118,7 +135,7 @@ export default {
                 .replace("SET timestamp=", "")
                 .replace(";", "")
                 .trim();
-            } else if (line.startsWith("SELECT") || collectingQuery) {
+            } else if (sqlKeywords.some(keyword => line.startsWith(keyword)) || collectingQuery) {
               currentRow.sqlBefore += " " + line.trim();
               collectingQuery = true;
             }
@@ -126,16 +143,14 @@ export default {
 
           if (currentRow.fileTime) rows.push(currentRow);
 
-          // กรองข้อมูลที่ sqlBefore ซ้ำกันโดยเลือกข้อมูลที่ fileTime ใหม่ที่สุด
+          // กรองชุดข้อมูลที่มี service กับ sqlquery ซ้ำกันโดยเลือกข้อมูลที่ fileTime ใหม่ที่สุด
           const uniqueRows = Array.from(
             rows
               .reduce((map, row) => {
-                const existingRow = map.get(row.sqlBefore);
-                if (
-                  !existingRow ||
-                  new Date(row.fileTime) > new Date(existingRow.fileTime)
-                ) {
-                  map.set(row.sqlBefore, row);
+                const key = `${row.sqlService}|${row.sqlBefore}`;
+                const existingRow = map.get(key);
+                if (!existingRow || new Date(row.fileTime) > new Date(existingRow.fileTime)) {
+                  map.set(key, row);
                 }
                 return map;
               }, new Map())
@@ -147,7 +162,7 @@ export default {
 
           setFileRows(uniqueRows);
         } else {
-          alert("Unable to process the file content.");
+          showSnackbar("ไม่สามารถแปลงไฟล์ได้!");
         }
       };
       reader.readAsText(file);
@@ -155,7 +170,7 @@ export default {
 
     const handleUploadData = async () => {
       if (!fileRows.value || fileRows.value.length === 0) {
-        alert("No data to upload. Please upload a valid file first.");
+        alert("กรุณาเลือกไฟล์ก่อน!");
         return;
       }
 
@@ -164,16 +179,34 @@ export default {
         console.log("Prepared data:", preparedData);
 
         const result = await uploadData(preparedData);
+
+        if (result && result.message) {
+          showSnackbar(result.message, result.duplicateRows > 0 ? "warning" : "success");
+        } else {
+          showSnackbar("อัพโหลดข้อมูลสำเร็จ!", "success");
+        }
+
         console.log("Upload result:", result);
       } catch (error) {
         console.error("Error uploading data:", error);
-        alert(`Failed to upload data. Error: ${error.message}`);
+        showSnackbar(`อัพโหลดข้อมูลไม่สำเร็จ : ${error.message}`, "error");
       }
+    };
+
+    const goToReportPage = () => {
+      setFileRows([]);
+      router.push("/report_page");
     };
 
     // ฟังก์ชันสำหรับล้างข้อมูลใน DataTable
     const clearFileRows = () => {
       setFileRows([]);
+    };
+
+    const handleLogout = () => {
+      loginStore.$reset(); // ล้างข้อมูล authStore ทั้งหมด
+      setFileRows([]); // ล้างข้อมูลในตาราง ทั้งหมด
+      router.push("/login_page");
     };
 
     return {
@@ -185,6 +218,11 @@ export default {
       handleUploadData,
       goToReportPage,
       clearFileRows,
+      handleLogout,
+      showSnackbar,
+      snackbar,
+      snackbarMessage,
+      snackbarColor,
     };
   },
 };
@@ -280,5 +318,16 @@ export default {
         Go To Report Page
       </v-btn>
     </v-col>
+    <v-col
+      cols="12"
+      class="pa-0 pt-4 pb-4"
+    >
+      <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
+        LOGOUT
+      </v-btn>
+    </v-col>
   </v-col>
+  <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="5000">
+    {{ snackbarMessage }}
+  </v-snackbar>
 </template>

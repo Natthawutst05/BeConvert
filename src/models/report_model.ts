@@ -13,6 +13,7 @@ export interface ReportData {
   updatedAt: string;
   createdUser: string;
   updatedUser: string;
+  fileStatus: string,
 }
 
 export interface UpdateData {
@@ -28,7 +29,7 @@ export interface UpdateData {
   assignDateStart: string,
   assignDateEnd: string,
   createdUser: string,
-  updatedUser: string
+  updatedUser: string,
 }
 
 export interface SelectedRow {
@@ -50,4 +51,11 @@ export interface SelectedRow {
   dateProcess: string;
   assignDateStart: string;
   assignDateEnd: string;
+}
+
+export interface AllStatus {
+  statusWait: number,
+  statusConfirm: number,
+  statusProcess: number,
+  statusCancel: number,
 }

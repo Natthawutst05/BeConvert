@@ -1,19 +1,48 @@
 import { defineStore } from 'pinia';
-import { fetchReport, fetchUpdate, addReportStatus, fetchSingleUpdate } from '@/apis/report_api';
-import type { ReportData, UpdateData } from '@/models/report_model';
+import { fetchReport, fetchUpdate, addReportStatus} from '@/apis/report_api';
+import type { ReportData, UpdateData, SelectedRow, AllStatus } from '@/models/report_model';
 
 export const useReportStore = defineStore('ReportData', {
   state: () => ({
-    reportData: [] as ReportData[], // เก็บข้อมูลจาก API
+    reportData: [] as ReportData[],
+    updateData: [] as UpdateData[],
+    mergedReportData: [] as ReportData[],
+    activeCard: "",
+    allStatus: {
+      statusWait: 0,
+      statusConfirm: 0,
+      statusProcess: 0,
+      statusCancel: 0,
+    } as AllStatus,
+    serviceFilter: "",
+    userNameFilter: "",
+    monthFilter: 0,
+    yearFilter: 0,
   }),
   actions: {
-    async fetchReportData() {
-      this.reportData = [] as ReportData[]
-      const response = await fetchReport();
-      if (response.ok) {
-        this.reportData = response.data as ReportData[];
-      } else {
-        console.error('Error fetching report data:', response.error);
+    async fetchAllReportData() {
+      this.loading = true;
+      try {
+        const reportResponse = await fetchReport();
+        if (reportResponse.ok) {
+          this.reportData = reportResponse.data as ReportData[];
+        } else {
+          console.error('Error fetching report data:', reportResponse.error);
+        }
+
+        const updateResponse = await fetchUpdate();
+        if (updateResponse.ok) {
+          this.updateData = updateResponse.data as UpdateData[];
+        } else {
+          console.error('Error fetching update data:', updateResponse.error);
+        }
+
+        this.mergeReportData();
+        this.calculateStatusCounts();
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        this.loading = false;
       }
     },
     async saveReportStatus(payload: any) {
@@ -25,36 +54,74 @@ export const useReportStore = defineStore('ReportData', {
         throw error;
       }
     },
+    mergeReportData() {
+      this.mergedReportData = this.reportData.map(reportItem => {
+        const updateItem = this.updateData.find(update => update.fileId === reportItem.fileId);
+        return {
+          ...reportItem,
+          fileStatus: updateItem?.fileStatus || reportItem.fileStatus || "Wait",
+          sqlBefore: updateItem?.sqlAfter || reportItem.sqlBefore,
+          createdUser: updateItem?.assignBy ||  "None",
+          updatedUser: updateItem?.assignTo ||  "None",
+        };
+      });
+    },
+    calculateStatusCounts() {
+      const res = this.mergedReportData;
+      this.allStatus.statusWait = res.filter((item: ReportData) => item.fileStatus == "Wait").length;
+      this.allStatus.statusConfirm = res.filter((item: ReportData) => item.fileStatus == "Confirm").length;
+      this.allStatus.statusProcess = res.filter((item: ReportData) => item.fileStatus == "Process").length;
+      this.allStatus.statusCancel = res.filter((item: ReportData) => item.fileStatus == "Cancel").length;
+    },
+    setActiveCard(status: string) {
+      this.activeCard = status;
+      this.allStatus.activeCard = status;
+      this.calculateStatusCounts();
+      this.fetchAllReportData();
+    },
+    setFilter(sqlService: string | null, userName: string | null, month: number | null, year: number | null) {
+      this.serviceFilter = sqlService;
+      this.userNameFilter = userName;
+      this.monthFilter = month;
+      this.yearFilter = year;
+    },
   },
-});
+  getters: {
+    filteredReportData: (state) => {
+      // if (!state.activeCard) {
+      //   return state.mergedReportData;
+      // } else {
+      //   return state.mergedReportData.filter(item => item.fileStatus === state.activeCard);
+      // }
+      let filteredData = state.mergedReportData;
 
-export const useUpdateReportStore = defineStore('updateData', {
-  state: () => ({
-    updateData: [] as UpdateData[], // เก็บข้อมูลจาก API
-  }),
-  actions: {
-    async fetchReportUpdateData() {
-      this.updateData = [] as UpdateData[]
-      const response = await fetchUpdate();
-      if (response.ok) {
-        this.updateData = response.data as UpdateData[];
-      } else {
-        console.error('Error fetching update data:', response.error);
+      if (state.activeCard) {
+        filteredData = filteredData.filter(item => item.fileStatus === state.activeCard);
       }
-    },
-    async fetchSingleUpdateData(fileId: number) {
-      try {
-        const response = await fetchSingleUpdate(fileId); // เรียก API เพื่อนำข้อมูลแถวที่เลือก
-        if (response.ok) {
-          return response.data as UpdateData; // คืนค่าข้อมูลแถวที่เลือก
-        } else {
-          console.error('Error fetching single report data:', response.error);
-          throw new Error(response.error);
-        }
-      } catch (error) {
-        console.error("Error fetching single report data:", error);
-        throw error;
+
+      if (state.serviceFilter) {
+        filteredData = filteredData.filter(item => item.sqlService === state.serviceFilter);
       }
+
+      if (state.userNameFilter) {
+        filteredData = filteredData.filter(item => item.updatedUser === state.userNameFilter);
+      }
+
+      if (state.monthFilter) {
+        filteredData = filteredData.filter(item => {
+          const fileTime = new Date(item.fileTime);
+          return fileTime.getMonth() + 1 === state.monthFilter;
+        });
+      }
+
+      if (state.yearFilter) {
+        filteredData = filteredData.filter(item => {
+          const fileTime = new Date(item.fileTime);
+          return fileTime.getFullYear() === state.yearFilter;
+        });
+      }
+
+      return filteredData;
     },
-  },
+  }
 });
