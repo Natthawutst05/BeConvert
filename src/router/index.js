@@ -7,7 +7,30 @@
 
 // Composables
 import { createRouter, createWebHistory } from 'vue-router/auto'
-import { routes } from 'vue-router/auto-routes'
+//import { routes } from 'vue-router/auto-routes'
+import DefaultLayout from "@/layouts/layoutDefault.vue";
+import BlankLayout from "@/layouts/layoutBlank.vue";
+
+const routes = [
+  {
+    path: "/",
+    component: DefaultLayout,
+    children: [
+      { path: "upload_file_page", component: () => import("@/pages/upload_file_page.vue") },
+      { path: "upload_file2_page", component: () => import("@/pages/upload_file2_page.vue") },
+      { path: "report_page", component: () => import("@/pages/report_page.vue") },
+      { path: "report2_page", component: () => import("@/pages/report2_page.vue") },
+    ],
+  },
+  {
+    path: "/",
+    component: BlankLayout,
+    children: [
+      { path: "login_page", component: () => import("@/pages/login_page.vue") },
+      { path: "register_page", component: () => import("@/pages/register_page.vue") },
+    ],
+  },
+];
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

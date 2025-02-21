@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
-import { uploadFileData } from "@/apis/fileupload_api";
+import { uploadFileData } from "@/apis/fileupload2_api";
 import { ref } from "vue";
 
-export const useFileUploadStore = defineStore("SlowQueryUploadStore", () => {
+export const useFileAccessUploadStore = defineStore("AccessUploadStore", () => {
   const fileRows = ref<any[]>([]);
 
   const setFileRows = (rows: any[]) => {

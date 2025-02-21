@@ -4,13 +4,13 @@ import { storeToRefs } from "pinia";
 import "remixicon/fonts/remixicon.css";
 import { useRouter } from "vue-router";
 import { useLoginStore, getAllUserStore } from "../stores/auth_store";
-import { useReportStore } from "../stores/report_store";
-import { SelectedRow } from "@/models/report_model";
+import { useAccessReportStore } from "../stores/report2_store";
+import { SelectedRow } from "@/models/report2_model";
 import { requiredRule } from "@/utils/validationRules";
 
 const router = useRouter();
 const allUserStore = getAllUserStore();
-const reportStore = useReportStore();
+const reportStore = useAccessReportStore();
 const { filteredReportData, allStatus, reportData, updateData } =
   storeToRefs(reportStore);
 const loginStore = useLoginStore();
@@ -43,10 +43,10 @@ const isSaveDisabled = computed(() => {
   );
 });
 
-//กำหนดให้ SqlQuery ไม่เกิน 25 ตัวอักษร
-const truncateSQLQuery = (query: string) =>
+//กำหนดให้ตัวอักษรไม่เกิน 25 ตัวอักษร
+const truncateColumn = (query: string) =>
   query.length > 25 ? query.substring(0, 25) + "..." : query;
-const showFullSQLQuery = (query: string) => {
+const showFullText = (query: string) => {
   alert(`Full SQL Query: ${query}`);
 };
 
@@ -57,27 +57,26 @@ const clickActiveCard = (status: string) => {
   reportStore.setActiveCard(status);
 };
 
-// Filter service,user,month,year
-const selectedService = ref<string | null>(null);
+// Filter method,user,month,year
+const selectedMethod = ref<string | null>(null);
 const selectedUser = ref<string | null>(null);
 const selectedMonth = ref<number | null>(null);
 const selectedYear = ref<number | null>(null);
 const applyFilter = () => {
   reportStore.setFilter(
-    selectedService.value,
+    selectedMethod.value,
     selectedUser.value,
     selectedMonth.value,
     selectedYear.value
   );
 };
-// ใช้ watch หากต้องการให้ค้นหาได้เลยไม่ต้องกด Search
-// watch(() => selectedService.value, () => applyFilter());
+// watch(() => selectedMethod.value, () => applyFilter());
 // watch(() => selectedUser.value, () => applyFilter());
 // watch(() => selectedMonth.value, () => applyFilter());
 // watch(() => selectedYear.value, () => applyFilter());
 
 // Service List
-const servicelist = ref<string[]>([]);
+const methodlist = ref<string[]>([]);
 
 // User List
 const userlist = ref<string[]>([]);
@@ -109,15 +108,15 @@ const assignUserlist = ref<string[]>([]);
 
 // DataTable Header
 const headers = [
-  { title: "SQL ID", key: "fileId" },
-  { title: "SQL Time", key: "fileTime" },
-  { title: "Service", key: "sqlService" },
-  { title: "Process ID", key: "processId" },
-  { title: "Query Time", key: "queryTime" },
-  { title: "Rows Sent", key: "rowsSent" },
-  { title: "Rows Examined", key: "rowsExamined" },
-  { title: "Set Timestamp", key: "setTimestamp" },
-  { title: "SQL Query", key: "sqlBefore" },
+  { title: "ID", key: "fileId" },
+  { title: "DateTime", key: "fileTime" },
+  { title: "Method", key: "fileMethod" },
+  { title: "Response", key: "fileResponse" },
+  { title: "Size(byte)", key: "fileSize" },
+  { title: "From", key: "fileFrom" },
+  { title: "UserAgent", key: "userAgent" },
+  { title: "Device", key: "fileDevice" },
+  { title: "API Url", key: "urlBefore" },
   { title: "Assign User", key: "createdUser" },
   { title: "Assign To User", key: "updatedUser" },
   { title: "Status", key: "fileStatus" },
@@ -147,15 +146,15 @@ const getCardColor = (cardTitle) => {
 // State สำหรับข้อมูล row ที่เลือก
 const selectedRow = reactive<SelectedRow>({
   fileId: null,
+  fileIp: "",
   fileTime: "",
-  sqlService: "",
-  processId: "",
-  queryTime: "",
-  lockTime: "",
-  rowsSent: "",
-  rowsExamined: "",
-  setTimestamp: "",
-  sqlBefore: "",
+  fileMethod: "",
+  urlBefore: "",
+  fileResponse: null,
+  fileSize: null,
+  fileFrom: "",
+  userAgent: "",
+  fileDevice: "",
   createdAt: "",
   createdUser: "",
   assignTo: "",
@@ -257,7 +256,7 @@ const saveDialogData = async () => {
     fileId: selectedRow.fileId,
     assignBy: loginStore.authUser.userName,
     assignTo: selectedRow.assignTo,
-    sqlAfter: selectedRow.sqlBefore,
+    urlAfter: selectedRow.urlBefore,
     fileStatus: selectedRow.fileStatus,
     fileComment: selectedRow.fileComment,
     dateProcess: selectedRow.dateProcess,
@@ -295,16 +294,6 @@ const saveDialogData = async () => {
   }
 };
 
-// แปลง TimeStamp เป็น DateTime
-const convertTimestampToDateTime = (timestamp: number) => {
-  if (!timestamp) return "N/A";
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
-};
-
-const accessReport = () => {
-  router.push("/report2_page");
-};
 const handleLogout = () => {
   loginStore.$reset(); // ล้างข้อมูล authStore ทั้งหมด
   router.push("/login_page");
@@ -316,7 +305,7 @@ const getStatusCountText = computed(() => (status) => {
 });
 
 const resetDataFilter = async () => {
-  selectedService.value = null;
+  selectedMethod.value = null;
   selectedUser.value = null;
   selectedMonth.value = null;
   selectedYear.value = null;
@@ -330,12 +319,11 @@ onMounted(async () => {
     await reportStore.fetchAllReportData();
     await allUserStore.fetchAllUserData();
     assignUserlist.value = allUserStore.authUser.map((user) => user.userName);
-    userlist.value = [
-      "None",
-      ...Array.from(new Set(updateData.value.map((item) => item.assignTo))),
-    ];
-    servicelist.value = Array.from(
-      new Set(reportData.value.map((item) => item.sqlService))
+    userlist.value = Array.from(
+      new Set(updateData.value.map((item) => item.assignTo))
+    );
+    methodlist.value = Array.from(
+      new Set(reportData.value.map((item) => item.fileMethod))
     );
   } catch (error) {
     console.error("Error loading data:", error);
@@ -345,7 +333,7 @@ onMounted(async () => {
 
 <template>
   <v-col cols="12" class="pa-6">
-    <h1 class="text-2xl font-bold mb-4">Slow Query Management</h1>
+    <h1 class="text-2xl font-bold mb-4">Access Log Management</h1>
     <!-- Status Cards -->
     <v-row class="pb-6">
       <v-col cols="12" md="3">
@@ -418,13 +406,13 @@ onMounted(async () => {
       <v-row class="pa-4">
         <v-col cols="3">
           <v-select
-            label="Service"
+            label="Method"
             variant="outlined"
-            :items="servicelist"
-            v-model="selectedService"
+            :items="methodlist"
+            v-model="selectedMethod"
           />
         </v-col>
-        <v-col cols="2">
+        <v-col cols="3">
           <v-select
             label="User"
             variant="outlined"
@@ -468,17 +456,13 @@ onMounted(async () => {
         item-value="index"
         class="elevation-1"
       >
-        <!-- Timestamp -->
-        <template #item.setTimestamp="{ item }">
-          <span>{{ convertTimestampToDateTime(item.setTimestamp) }}</span>
-        </template>
-        <!-- Sql Query -->
-        <template #item.sqlBefore="{ item }">
-          <span v-if="item.sqlBefore.length <= 25">
-            {{ item.sqlBefore }}
+        <!-- User Agent -->
+        <template #item.fileFrom="{ item }">
+          <span v-if="item.fileFrom.length <= 25">
+            {{ item.fileFrom }}
           </span>
           <span v-else>
-            {{ truncateSQLQuery(item.sqlBefore) }}
+            {{ truncateColumn(item.fileFrom) }}
             <v-tooltip bottom>
               <template #activator="{ props }">
                 <span
@@ -488,7 +472,47 @@ onMounted(async () => {
                   More
                 </span>
               </template>
-              <span>{{ item.sqlBefore }}</span>
+              <span>{{ item.fileFrom }}</span>
+            </v-tooltip>
+          </span>
+        </template>
+        <!-- Url From -->
+        <template #item.userAgent="{ item }">
+          <span v-if="item.userAgent.length <= 25">
+            {{ item.userAgent }}
+          </span>
+          <span v-else>
+            {{ truncateColumn(item.userAgent) }}
+            <v-tooltip bottom>
+              <template #activator="{ props }">
+                <span
+                  class="text-blue-500 underline cursor-pointer"
+                  v-bind="props"
+                >
+                  More
+                </span>
+              </template>
+              <span>{{ item.userAgent }}</span>
+            </v-tooltip>
+          </span>
+        </template>
+        <!-- Api url -->
+        <template #item.urlBefore="{ item }">
+          <span v-if="item.urlBefore.length <= 25">
+            {{ item.urlBefore }}
+          </span>
+          <span v-else>
+            {{ truncateColumn(item.urlBefore) }}
+            <v-tooltip bottom>
+              <template #activator="{ props }">
+                <span
+                  class="text-blue-500 underline cursor-pointer"
+                  v-bind="props"
+                >
+                  More
+                </span>
+              </template>
+              <span>{{ item.urlBefore }}</span>
             </v-tooltip>
           </span>
         </template>
@@ -506,7 +530,7 @@ onMounted(async () => {
                 <v-row>
                   <v-col cols="3" class="pl-9">
                     <v-text-field
-                      label="SQL ID"
+                      label="ID"
                       variant="outlined"
                       disabled
                       v-model="selectedRow.fileId"
@@ -514,7 +538,7 @@ onMounted(async () => {
                   </v-col>
                   <v-col cols="3">
                     <v-text-field
-                      label="SQL Time"
+                      label="DateTime"
                       variant="outlined"
                       disabled
                       v-model="selectedRow.fileTime"
@@ -525,62 +549,54 @@ onMounted(async () => {
                       label="SQL Service"
                       variant="outlined"
                       disabled
-                      v-model="selectedRow.sqlService"
+                      v-model="selectedRow.fileMethod"
                     />
                   </v-col>
                   <v-col cols="3" class="pr-9">
                     <v-text-field
-                      label="Process ID"
+                      label="Response"
                       variant="outlined"
                       disabled
-                      v-model="selectedRow.processId"
+                      v-model="selectedRow.fileResponse"
                     />
                   </v-col>
                 </v-row>
                 <v-row>
                   <v-col cols="3" class="pl-9">
                     <v-text-field
-                      label="Query Time"
+                      label="Size(byte)"
                       variant="outlined"
                       disabled
-                      v-model="selectedRow.queryTime"
+                      v-model="selectedRow.fileSize"
                     />
                   </v-col>
                   <v-col cols="3">
                     <v-text-field
-                      label="Lock Time"
+                      label="From"
                       variant="outlined"
                       disabled
-                      v-model="selectedRow.lockTime"
+                      v-model="selectedRow.fileFrom"
                     />
                   </v-col>
                   <v-col cols="3">
                     <v-text-field
-                      label="Rows Sent"
+                      label="UserAgent"
                       variant="outlined"
                       disabled
-                      v-model="selectedRow.rowsSent"
+                      v-model="selectedRow.userAgent"
                     />
                   </v-col>
                   <v-col cols="3" class="pr-9">
                     <v-text-field
-                      label="Rows Examined"
+                      label="Device"
                       variant="outlined"
                       disabled
-                      v-model="selectedRow.rowsExamined"
+                      v-model="selectedRow.fileDevice"
                     />
                   </v-col>
                 </v-row>
                 <v-row>
-                  <v-col cols="4" class="pl-9">
-                    <v-text-field
-                      label="Set Timestamp"
-                      variant="outlined"
-                      disabled
-                      v-model="selectedRow.setTimestamp"
-                    />
-                  </v-col>
-                  <v-col cols="4">
+                  <v-col cols="6" class="pl-9">
                     <v-text-field
                       label="Created Date"
                       variant="outlined"
@@ -588,7 +604,7 @@ onMounted(async () => {
                       v-model="selectedRow.createdAt"
                     />
                   </v-col>
-                  <v-col cols="4" class="pr-9">
+                  <v-col cols="6" class="pr-9">
                     <v-text-field
                       label="Created User"
                       variant="outlined"
@@ -661,9 +677,9 @@ onMounted(async () => {
                   </template>
                   <v-col cols="12" class="pl-6 pr-6">
                     <v-text-field
-                      label="SQL Query"
+                      label="API Url"
                       variant="outlined"
-                      v-model="selectedRow.sqlBefore"
+                      v-model="selectedRow.urlBefore"
                       :rules="[requiredRule]"
                     />
                   </v-col>
@@ -732,11 +748,6 @@ onMounted(async () => {
         </template>
       </v-data-table>
     </v-card>
-    <v-col cols="12" class="pa-0 pt-4 pb-4">
-      <v-btn variant="tonal" color="error" class="w-100" @click="accessReport">
-        Access Report
-      </v-btn>
-    </v-col>
     <v-col cols="12" class="pa-0 pt-4 pb-4">
       <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
         LOGOUT

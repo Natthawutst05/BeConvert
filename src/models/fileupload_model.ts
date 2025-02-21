@@ -8,6 +8,6 @@ export interface FileDataUpload {
   rowsExamined: number;  // Rows Examined
   setTimestamp: number;  // Timestamp ที่ได้จาก SET timestamp=
   sqlBefore: string;     // SQL Query
-  createdUser: string;   // ผู้สร้างข้อมูล
-  updatedUser: string;   // ผู้อัปเดตข้อมูล
+  createdUser: string;
+  updatedUser: string;
 }

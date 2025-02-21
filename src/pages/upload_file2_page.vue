@@ -2,12 +2,12 @@
 import { ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
-import { useFileUploadStore } from "../stores/fileupload_store";
+import { useFileAccessUploadStore } from "../stores/fileupload2_store";
 import { useLoginStore } from "../stores/auth_store";
 
-const fileUploadStore = useFileUploadStore();
+const fileUploadStore = useFileAccessUploadStore();
 const loginStore = useLoginStore();
-const { setFileRows, uploadData } = useFileUploadStore();
+const { setFileRows, uploadData } = useFileAccessUploadStore();
 const { fileRows } = storeToRefs(fileUploadStore);
 const router = useRouter();
 
@@ -24,15 +24,15 @@ const showSnackbar = (message: string, color: string = "error") => {
 
 const headers = [
   { title: "No.", key: "no" },
-  { title: "Time", key: "fileTime" },
-  { title: "User@Host", key: "sqlService" },
-  { title: "ID", key: "processId" },
-  { title: "Query Time", key: "queryTime" },
-  { title: "Lock Time", key: "lockTime" },
-  { title: "Rows Sent", key: "rowsSent" },
-  { title: "Rows Examined", key: "rowsExamined" },
-  { title: "SET Timestamp", key: "setTimestamp" },
-  { title: "SQL Query", key: "sqlBefore" },
+  { title: "IP", key: "fileIp" },
+  { title: "DateTime", key: "fileTime" },
+  { title: "Method", key: "fileMethod" },
+  { title: "ApiUrl Time", key: "urlBefore" },
+  { title: "Response", key: "fileResponse" },
+  { title: "Size(byte)", key: "fileSize" },
+  { title: "FromUrl", key: "fileFrom" },
+  { title: "UserAgent", key: "userAgent" },
+  { title: "Device", key: "fileDevice" },
 ];
 
 const truncateSQLQuery = (query: string) =>
@@ -42,60 +42,17 @@ const showFullSQLQuery = (query: string) => {
   showSnackbar(`Full SQL Query: ${query}`, "indigo");
 };
 
-const sqlKeywords = [
-  "SELECT",
-  "INSERT",
-  "UPDATE",
-  "DELETE",
-  "CREATE",
-  "ALTER",
-  "DROP",
-  "TRUNCATE",
-  "WITH",
-  "EXPLAIN",
-  "SHOW",
-  "DESCRIBE",
-  "USE",
-  "GRANT",
-  "REVOKE",
-  "BEGIN",
-  "COMMIT",
-  "ROLLBACK",
-  "SAVEPOINT",
-  "ADD",
-  "select",
-  "insert",
-  "update",
-  "delete",
-  "create",
-  "alter",
-  "drop",
-  "truncate",
-  "with",
-  "explain",
-  "show",
-  "describe",
-  "use",
-  "grant",
-  "revoke",
-  "begin",
-  "commit",
-  "rollback",
-  "savepoint",
-  "add",
-];
-
 const prepareDataForUpload = () =>
   fileRows.value.map((row) => ({
+    fileIp: row.fileIp,
     fileTime: row.fileTime,
-    sqlService: row.sqlService,
-    processId: parseInt(row.processId),
-    queryTime: row.queryTime,
-    lockTime: row.lockTime,
-    rowsSent: parseInt(row.rowsSent),
-    rowsExamined: parseInt(row.rowsExamined),
-    setTimestamp: parseInt(row.setTimestamp),
-    sqlBefore: row.sqlBefore,
+    fileMethod: row.fileMethod,
+    urlBefore: row.urlBefore,
+    fileResponse: parseInt(row.fileResponse),
+    fileSize: parseInt(row.fileSize),
+    fileFrom: row.fileFrom,
+    userAgent: row.userAgent,
+    fileDevice: row.fileDevice,
     createdUser: loginStore.authUser.userName,
     updatedUser: loginStore.authUser.userName,
   }));
@@ -111,94 +68,53 @@ const handleFileUpload = (event) => {
   reader.onload = (e) => {
     const content = e.target.result;
     if (typeof content === "string") {
-      const lines = content.split("\n").filter((line) => line.trim() !== "");
+      const logPattern =
+        /(\S+) - - \[(.*?)\] "(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD) (.*?) HTTP\/[\d.]+\" (\d+) (\d+) "(.*?)" "(.*?)" "(.*?)" Request_Time: ([\d.]+)/g;
+      let match;
       const rows = [];
       setFileRows(rows);
       console.log("File Rows:", rows);
-      let currentRow = {
-        fileTime: "",
-        sqlService: "",
-        processId: "",
-        queryTime: "",
-        lockTime: "",
-        rowsSent: "",
-        rowsExamined: "",
-        setTimestamp: "",
-        sqlBefore: "",
-      };
-      let collectingQuery = false;
 
-      for (const line of lines) {
-        if (line.startsWith("# Time:")) {
-          if (currentRow.fileTime) rows.push(currentRow);
-          currentRow = {
-            fileTime: "",
-            sqlService: "",
-            processId: "",
-            queryTime: "",
-            lockTime: "",
-            rowsSent: "",
-            rowsExamined: "",
-            setTimestamp: "",
-            sqlBefore: "",
-          };
-          currentRow.fileTime = line.replace("# Time:", "").trim();
-          collectingQuery = false;
-        } else if (line.startsWith("# User@Host:")) {
-          const match = line.match(
-            /# User@Host:\s*([\w\[\]]+)\s+@\s+\[.*?\]\s+Id:\s*(\d+)/
-          );
-          if (match) {
-            currentRow.sqlService = match[1].trim();
-            currentRow.processId = match[2].trim();
-          }
-        } else if (line.startsWith("# Query_time:")) {
-          const match = line.match(
-            /# Query_time: (\S+)\s+Lock_time: (\S+)\s+Rows_sent: (\d+)\s+Rows_examined: (\d+)/
-          );
-          if (match) {
-            currentRow.queryTime = match[1];
-            currentRow.lockTime = match[2];
-            currentRow.rowsSent = match[3];
-            currentRow.rowsExamined = match[4];
-          }
-        } else if (line.startsWith("SET timestamp=")) {
-          currentRow.setTimestamp = line
-            .replace("SET timestamp=", "")
-            .replace(";", "")
-            .trim();
-        } else if (
-          sqlKeywords.some((keyword) => line.startsWith(keyword)) ||
-          collectingQuery
-        ) {
-          currentRow.sqlBefore += " " + line.trim();
-          collectingQuery = true;
-        }
+      while ((match = logPattern.exec(content)) !== null) {
+        const [
+          ,
+          fileIp,
+          fileTime,
+          fileMethod,
+          urlBefore,
+          fileResponse,
+          fileSize,
+          fileFrom,
+          userAgent,
+        ] = match;
+
+        let fileDevice = "Unknown";
+        if (userAgent.includes("Windows NT")) fileDevice = "Windows";
+        else if (userAgent.includes("Mac OS X")) fileDevice = "MacOS";
+        else if (userAgent.includes("Android")) fileDevice = "Android";
+        else if (userAgent.includes("iPhone") || userAgent.includes("iPad"))
+          fileDevice = "iOS";
+        else if (userAgent.includes("Linux")) fileDevice = "Linux";
+
+        rows.push({
+          fileIp,
+          fileTime,
+          fileMethod,
+          urlBefore,
+          fileResponse: parseInt(fileResponse),
+          fileSize: parseInt(fileSize),
+          fileFrom,
+          userAgent,
+          fileDevice,
+        });
       }
 
-      if (currentRow.fileTime) rows.push(currentRow);
-
-      // กรองชุดข้อมูลที่มี service กับ sqlquery ซ้ำกันโดยเลือกข้อมูลที่ fileTime ใหม่ที่สุด
-      const uniqueRows = Array.from(
-        rows
-          .reduce((map, row) => {
-            const key = `${row.sqlService}|${row.sqlBefore}`;
-            const existingRow = map.get(key);
-            if (
-              !existingRow ||
-              new Date(row.fileTime) > new Date(existingRow.fileTime)
-            ) {
-              map.set(key, row);
-            }
-            return map;
-          }, new Map())
-          .values()
-      ).map((row, index) => ({
+      const processedRows = rows.map((row, index) => ({
         ...row,
         no: index + 1,
       }));
 
-      setFileRows(uniqueRows);
+      setFileRows(processedRows);
     } else {
       showSnackbar("ไม่สามารถแปลงไฟล์ได้!");
     }
@@ -234,13 +150,13 @@ const handleUploadData = async () => {
   }
 };
 
-const goToAccessPage = () => {
+const goToSlowPage = () => {
   setFileRows([]);
-  router.push("/upload_file2_page");
+  router.push("/upload_file_page");
 };
 const goToReportPage = () => {
   setFileRows([]);
-  router.push("/report_page");
+  router.push("/report2_page");
 };
 
 // ฟังก์ชันสำหรับล้างข้อมูลใน DataTable
@@ -257,7 +173,7 @@ const handleLogout = () => {
 
 <template>
   <v-col cols="12">
-    <h1 class="text-2xl font-bold mb-4">Upload File Slow Query (.log)</h1>
+    <h1 class="text-2xl font-bold mb-4">Upload File Access (.log)</h1>
 
     <!-- File Input -->
     <v-row>
@@ -289,12 +205,12 @@ const handleLogout = () => {
         {{ item.index }}
       </template>
 
-      <template #item.sqlBefore="{ item }">
-        <span v-if="item.sqlBefore.length <= 25">
-          {{ item.sqlBefore }}
+      <template #item.urlBefore="{ item }">
+        <span v-if="item.urlBefore.length <= 25">
+          {{ item.urlBefore }}
         </span>
         <span v-else>
-          {{ truncateSQLQuery(item.sqlBefore) }}
+          {{ truncateSQLQuery(item.urlBefore) }}
           <v-tooltip bottom>
             <template #activator="{ props }">
               <span
@@ -304,7 +220,7 @@ const handleLogout = () => {
                 More
               </span>
             </template>
-            <span>{{ item.sqlBefore }}</span>
+            <span>{{ item.urlBefore }}</span>
           </v-tooltip>
         </span>
       </template>
@@ -320,10 +236,10 @@ const handleLogout = () => {
       </v-btn>
     </v-col>
 
-    <!-- ไปหน้า AccessUpload -->
+    <!-- ไปหน้า SlowQueryUpload -->
     <v-col cols="12" class="pb-0 pl-0 pr-0">
-      <v-btn class="w-100" height="55px" @click="goToAccessPage">
-        Go To Access Upload Page
+      <v-btn class="w-100" height="55px" @click="goToSlowPage">
+        Go To SlowQuery Upload Page
       </v-btn>
     </v-col>
     <!-- ไปหน้า Report -->
@@ -332,7 +248,6 @@ const handleLogout = () => {
         Go To Report Page
       </v-btn>
     </v-col>
-
     <!-- Logout -->
     <v-col cols="12" class="pa-0 pt-4 pb-4">
       <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
