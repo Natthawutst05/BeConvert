@@ -19,6 +19,7 @@ export const useAccessReportStore = defineStore('ReportAccessData', {
     userNameFilter: "",
     monthFilter: 0,
     yearFilter: 0,
+    loading: false,
   }),
   actions: {
     async fetchAllReportData() {
@@ -61,7 +62,7 @@ export const useAccessReportStore = defineStore('ReportAccessData', {
         return {
           ...reportItem,
           fileStatus: updateItem?.fileStatus || reportItem.fileStatus || "Wait",
-          sqlBefore: updateItem?.urlAfter || reportItem.urlBefore,
+          urlBefore: updateItem?.urlAfter || reportItem.urlBefore,
           createdUser: updateItem?.assignBy ||  "None",
           updatedUser: updateItem?.assignTo ||  "None",
         };
@@ -85,6 +86,23 @@ export const useAccessReportStore = defineStore('ReportAccessData', {
       this.userNameFilter = userName;
       this.monthFilter = month;
       this.yearFilter = year;
+    },
+    resetStore() {
+      this.reportData = [];
+      this.updateData = [];
+      this.mergedReportData = [];
+      this.activeCard = "";
+      this.allStatus = {
+        statusWait: 0,
+        statusConfirm: 0,
+        statusProcess: 0,
+        statusCancel: 0,
+      };
+      this.methodFilter = "";
+      this.userNameFilter = "";
+      this.monthFilter = 0;
+      this.yearFilter = 0;
+      this.loading = false;
     },
   },
   getters: {

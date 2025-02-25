@@ -1,9 +1,9 @@
 import { defineStore } from "pinia";
 import { loginUser, fetchAllUsers } from "../apis/auth_api";
 import { ResponseStandard } from "../models/response_standard"
-import { AuthModel, RegisterModel } from "../models/auth_model"
+import { AuthModel } from "../models/auth_model"
 
-export const useLoginStore = defineStore("login", {
+export const useLoginStore = defineStore("loginStore", {
   state: () => ({
     authUser: {} as AuthModel
   }),
@@ -26,7 +26,9 @@ export const useLoginStore = defineStore("login", {
     },
 
     logout() {
-      this.authUser = {} as AuthModel; // เคลียร์ค่า authUser เมื่อล็อกเอาต์
+      // this.authUser = {} as AuthModel; // เคลียร์ค่า authUser เมื่อล็อกเอาต์
+      this.$reset();
+      sessionStorage.removeItem("authUser");
     },
 
     persist: {
@@ -41,7 +43,23 @@ export const useLoginStore = defineStore("login", {
   },
 });
 
-export const getAllUserStore = defineStore('alluser', {
+export const useAuthStore = defineStore("authStore", {
+  state: () => ({
+    token: localStorage.getItem("authToken") || "",
+  }),
+  actions: {
+    setToken(token: string) {
+      this.token = token;
+      localStorage.setItem("authToken", token);
+    },
+    logout() {
+      this.$reset(); // ใช้ $reset() เพื่อเคลียร์ state
+      localStorage.removeItem("authToken"); // ล้าง localStorage
+    },
+  },
+});
+
+export const getAllUserStore = defineStore('alluserStore', {
   state: () => ({
     authUser: [] as AuthModel[],
   }),

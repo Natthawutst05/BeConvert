@@ -2,16 +2,14 @@
 import { ref, computed, onMounted, reactive, watch } from "vue";
 import { storeToRefs } from "pinia";
 import "remixicon/fonts/remixicon.css";
-import { useRouter } from "vue-router";
 import { useLoginStore, getAllUserStore } from "../stores/auth_store";
 import { useReportStore } from "../stores/report_store";
 import { SelectedRow } from "@/models/report_model";
 import { requiredRule } from "@/utils/validationRules";
 
-const router = useRouter();
 const allUserStore = getAllUserStore();
 const reportStore = useReportStore();
-const { filteredReportData, allStatus, reportData, updateData } =
+const { filteredReportData, allStatus, reportData, updateData, loading } =
   storeToRefs(reportStore);
 const loginStore = useLoginStore();
 const form = ref();
@@ -300,14 +298,6 @@ const convertTimestampToDateTime = (timestamp: number) => {
   if (!timestamp) return "N/A";
   const date = new Date(timestamp * 1000);
   return date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
-};
-
-const accessReport = () => {
-  router.push("/report2_page");
-};
-const handleLogout = () => {
-  loginStore.$reset(); // ล้างข้อมูล authStore ทั้งหมด
-  router.push("/login_page");
 };
 
 const getStatusCountText = computed(() => (status) => {
@@ -698,12 +688,13 @@ onMounted(async () => {
                     </v-col>
                   </v-row>
                   <v-col cols="12" class="pl-6 pr-6">
-                    <v-text-field
+                    <v-textarea
                       label="Comment"
                       variant="outlined"
                       v-model="selectedRow.fileComment"
                       :rules="fileCommentRules"
                       ref="fileCommentField"
+                      auto-grow
                     />
                   </v-col>
                 </v-form>
@@ -732,20 +723,18 @@ onMounted(async () => {
         </template>
       </v-data-table>
     </v-card>
-    <v-col cols="12" class="pa-0 pt-4 pb-4">
-      <v-btn variant="tonal" color="error" class="w-100" @click="accessReport">
-        Access Report
-      </v-btn>
-    </v-col>
-    <v-col cols="12" class="pa-0 pt-4 pb-4">
-      <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
-        LOGOUT
-      </v-btn>
-    </v-col>
   </v-col>
 
   <!-- Snackbar -->
   <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="5000">
     {{ snackbarMessage }}
   </v-snackbar>
+
+  <!-- Loading -->
+  <v-dialog v-model="loading" persistent width="300">
+    <v-card class="pa-4 d-flex flex-column align-center">
+      <v-progress-circular indeterminate size="50" color="primary" />
+      <p class="mt-3">กำลังบันทึกข้อมูล...</p>
+    </v-card>
+  </v-dialog>
 </template>

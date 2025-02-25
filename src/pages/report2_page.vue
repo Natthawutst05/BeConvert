@@ -2,13 +2,11 @@
 import { ref, computed, onMounted, reactive, watch } from "vue";
 import { storeToRefs } from "pinia";
 import "remixicon/fonts/remixicon.css";
-import { useRouter } from "vue-router";
 import { useLoginStore, getAllUserStore } from "../stores/auth_store";
 import { useAccessReportStore } from "../stores/report2_store";
 import { SelectedRow } from "@/models/report2_model";
 import { requiredRule } from "@/utils/validationRules";
 
-const router = useRouter();
 const allUserStore = getAllUserStore();
 const reportStore = useAccessReportStore();
 const { filteredReportData, allStatus, reportData, updateData } =
@@ -294,11 +292,6 @@ const saveDialogData = async () => {
   }
 };
 
-const handleLogout = () => {
-  loginStore.$reset(); // ล้างข้อมูล authStore ทั้งหมด
-  router.push("/login_page");
-};
-
 const getStatusCountText = computed(() => (status) => {
   const count = allStatus.value[`status${status}`];
   return `Total: ${count || 0}`;
@@ -319,9 +312,10 @@ onMounted(async () => {
     await reportStore.fetchAllReportData();
     await allUserStore.fetchAllUserData();
     assignUserlist.value = allUserStore.authUser.map((user) => user.userName);
-    userlist.value = Array.from(
-      new Set(updateData.value.map((item) => item.assignTo))
-    );
+    userlist.value = [
+      "None",
+      ...Array.from(new Set(updateData.value.map((item) => item.assignTo))),
+    ];
     methodlist.value = Array.from(
       new Set(reportData.value.map((item) => item.fileMethod))
     );
@@ -714,12 +708,13 @@ onMounted(async () => {
                     </v-col>
                   </v-row>
                   <v-col cols="12" class="pl-6 pr-6">
-                    <v-text-field
+                    <v-textarea
                       label="Comment"
                       variant="outlined"
                       v-model="selectedRow.fileComment"
                       :rules="fileCommentRules"
                       ref="fileCommentField"
+                      auto-grow
                     />
                   </v-col>
                 </v-form>
@@ -748,11 +743,6 @@ onMounted(async () => {
         </template>
       </v-data-table>
     </v-card>
-    <v-col cols="12" class="pa-0 pt-4 pb-4">
-      <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
-        LOGOUT
-      </v-btn>
-    </v-col>
   </v-col>
 
   <!-- Snackbar -->

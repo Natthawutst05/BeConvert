@@ -150,24 +150,9 @@ const handleUploadData = async () => {
   }
 };
 
-const goToSlowPage = () => {
-  setFileRows([]);
-  router.push("/upload_file_page");
-};
-const goToReportPage = () => {
-  setFileRows([]);
-  router.push("/report2_page");
-};
-
 // ฟังก์ชันสำหรับล้างข้อมูลใน DataTable
 const clearFileRows = () => {
   setFileRows([]);
-};
-
-const handleLogout = () => {
-  loginStore.$reset(); // ล้างข้อมูล authStore ทั้งหมด
-  setFileRows([]); // ล้างข้อมูลในตาราง ทั้งหมด
-  router.push("/login_page");
 };
 </script>
 
@@ -233,25 +218,6 @@ const handleLogout = () => {
         @click="handleUploadData"
       >
         Upload Data
-      </v-btn>
-    </v-col>
-
-    <!-- ไปหน้า SlowQueryUpload -->
-    <v-col cols="12" class="pb-0 pl-0 pr-0">
-      <v-btn class="w-100" height="55px" @click="goToSlowPage">
-        Go To SlowQuery Upload Page
-      </v-btn>
-    </v-col>
-    <!-- ไปหน้า Report -->
-    <v-col cols="12" class="pb-0 pl-0 pr-0">
-      <v-btn class="w-100" height="55px" @click="goToReportPage">
-        Go To Report Page
-      </v-btn>
-    </v-col>
-    <!-- Logout -->
-    <v-col cols="12" class="pa-0 pt-4 pb-4">
-      <v-btn variant="tonal" color="error" class="w-100" @click="handleLogout">
-        LOGOUT
       </v-btn>
     </v-col>
   </v-col>

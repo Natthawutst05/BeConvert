@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useLoginStore } from "../stores/auth_store";
+import { useLoginStore, useAuthStore } from "../stores/auth_store";
 import { requiredRule, emailRule, passwordRule } from "@/utils/validationRules";
 
-const authStore = useLoginStore();
+const loginStore = useLoginStore();
+const authStore = useAuthStore();
 const router = useRouter();
 
 const form = ref();
@@ -24,10 +25,15 @@ const handleLogin = async () => {
   const result = await form.value?.validate();
   if (!result.valid) return;
 
-  const response = await authStore.login(userEmail.value, userPassword.value);
+  const response = await loginStore.login(userEmail.value, userPassword.value);
 
   if (response.ok) {
-    const userRole = authStore.authUser?.userRole;
+    const token = response.data.token;
+    const userRole = loginStore.authUser?.userRole;
+
+    authStore.setToken(token);
+
+    localStorage.setItem("authToken", token);
 
     if (userRole === "User" || userRole === "Admin") {
       router.push("/report_page");

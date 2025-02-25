@@ -4,53 +4,47 @@ import { useRouter } from "vue-router";
 import { useLoginStore, getAllUserStore } from "../stores/auth_store";
 import { useReportStore } from "../stores/report_store";
 import { useAccessReportStore } from "../stores/report2_store";
-import { useFileUploadStore } from "../stores/fileupload_store";
-import { useFileAccessUploadStore } from "../stores/fileupload2_store";
 
 const router = useRouter();
 const loginStore = useLoginStore();
 const isSAdmin = computed(() => loginStore.authUser?.userRole === "S-admin");
 
-const filteredMenuItems = computed(() => {
-  if (isSAdmin.value) {
-    return menuItems;
-  } else {
-    return menuItems.filter(
-      (item) =>
-        item.to !== "/upload_file_page" && item.to !== "/upload_file2_page"
-    );
-  }
-});
-
-const menuItems = [
-  { text: "Home", icon: "ri-home-line mr-2", to: "/" },
-  { text: "Upload SlowQuery File", icon: "ri-upload-line mr-2", to: "/upload_file_page" },
-  { text: "Upload Access File", icon: "ri-upload-line mr-2", to: "/upload_file2_page" },
-  { text: "SlowQuery Report", icon: "ri-file-text-line mr-2", to: "/report_page" },
-  { text: "Access Report", icon: "ri-file-text-line mr-2", to: "/report2_page" },
-];
-
 const drawer = ref(true);
 const rail = ref(true);
+
+const menuItems = computed(() => {
+  const items = [
+    { text: "Home", icon: "ri-home-line mr-2", to: "/" },
+    { text: "SlowQuery Report", icon: "ri-file-text-line mr-2", to: "/report_page" },
+    { text: "Access Report", icon: "ri-file-text-line mr-2", to: "/report2_page" },
+  ];
+
+  if (isSAdmin.value) {
+    items.push(
+      { text: "Upload SlowQuery File", icon: "ri-upload-line mr-2", to: "/upload_file_page" },
+      { text: "Upload Access File", icon: "ri-upload-line mr-2", to: "/upload_file2_page" }
+    );
+  }
+
+  return items;
+});
 
 const resetAllStores = () => {
   const allUserStore = getAllUserStore();
   const reportStore1 = useReportStore();
   const reportStore2 = useAccessReportStore();
-  const uploadStore1 = useFileUploadStore();
-  const uploadStore2 = useFileAccessUploadStore();
 
-  loginStore.$reset();
-  allUserStore.$reset();
-  reportStore1.$reset();
-  reportStore2.$reset();
-  uploadStore1.$reset();
-  uploadStore2.$reset();
+  loginStore.$reset?.();
+  allUserStore.$reset?.();
+  reportStore1.resetStore();
+  reportStore2.resetStore();
+
+  localStorage.removeItem("authToken");
 };
 
-const handleLogout = () => {
+const handleLogout = async () => {
   resetAllStores();
-  router.push("/login_page");
+  await router.replace("/login_page");
 };
 </script>
 
@@ -64,9 +58,7 @@ const handleLogout = () => {
     @click="rail = false"
   >
     <v-list>
-      <v-list-item
-        title="BeTask"
-      >
+      <v-list-item title="BeTask">
         <template #prepend>
           <img
             src="../assets/images/icon-betask.png"
@@ -75,9 +67,7 @@ const handleLogout = () => {
             height="28"
           >
         </template>
-        <template
-          #append
-        >
+        <template #append>
           <v-btn
             icon="mdi-chevron-left"
             variant="text"
@@ -93,37 +83,39 @@ const handleLogout = () => {
         nav
       >
         <v-list-item
-          v-for="(item, index) in filteredMenuItems"
+          v-for="(item, index) in menuItems"
           :key="index"
           :to="item.to"
           link
-          @click="item.text === 'Logout' ? handleLogout() : null"
         >
-          <v-list-item>
-            <template #prepend>
-              <i :class="item.icon" />
-            </template>
-            {{ item.text }}
-          </v-list-item>
+          <template #prepend>
+            <span
+              :class="item.icon"
+              class="ml-1"
+              style="font-size: 24px;"
+            />
+          </template>
+          {{ item.text }}
         </v-list-item>
       </v-list>
     </v-list>
+
     <template #append>
-      <div class="pa-2">
-        <v-btn
-          block
-          color="error"
-          @click="handleLogout()"
+      <v-list nav>
+        <v-list-item
+          link
+          class="text"
+          @click="handleLogout"
         >
-          <i
-            v-if="rail"
-            class="ri-logout-box-line"
-          />
-          <template v-else>
-            <i class="ri-logout-box-line mr-2" /> Logout
+          <template #prepend>
+            <i
+              class="ri-logout-box-line mr-2 ml-1"
+              style="font-size: 24px;"
+            />
           </template>
-        </v-btn>
-      </div>
+          Logout
+        </v-list-item>
+      </v-list>
     </template>
   </v-navigation-drawer>
 </template>

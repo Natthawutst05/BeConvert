@@ -37,6 +37,22 @@ const router = createRouter({
   routes,
 })
 
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem("authToken");
+
+  // ถ้ายังไม่ได้ Login และกำลังเข้าเพจที่ต้องใช้ Auth -> ส่งไปหน้า Login
+  if (!token && to.meta.requiresAuth) {
+    next({ path: "/login_page", replace: true });
+  }
+  // ถ้ามี Token แล้ว และกำลังเข้า Login/Register -> ส่งไปหน้า Report
+  else if (token && (to.path === "/login_page" || to.path === "/register_page")) {
+    next({ path: "/report_page", replace: true });
+  }
+  else {
+    next();
+  }
+});
+
 // Workaround for https://github.com/vitejs/vite/issues/11804
 router.onError((err, to) => {
   if (err?.message?.includes?.('Failed to fetch dynamically imported module')) {

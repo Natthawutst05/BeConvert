@@ -18,6 +18,7 @@ export const useReportStore = defineStore('ReportData', {
     userNameFilter: "",
     monthFilter: 0,
     yearFilter: 0,
+    loading: false,
   }),
   actions: {
     async fetchAllReportData() {
@@ -46,12 +47,15 @@ export const useReportStore = defineStore('ReportData', {
       }
     },
     async saveReportStatus(payload: any) {
+      this.loading = true;
       try {
         const result = await addReportStatus(payload);
         return result;
       } catch (error) {
         console.error("Error saving report status:", error);
         throw error;
+      } finally {
+        this.loading = false;
       }
     },
     mergeReportData() {
@@ -84,6 +88,23 @@ export const useReportStore = defineStore('ReportData', {
       this.userNameFilter = userName;
       this.monthFilter = month;
       this.yearFilter = year;
+    },
+    resetStore() {
+      this.reportData = [];
+      this.updateData = [];
+      this.mergedReportData = [];
+      this.activeCard = "";
+      this.allStatus = {
+        statusWait: 0,
+        statusConfirm: 0,
+        statusProcess: 0,
+        statusCancel: 0,
+      };
+      this.serviceFilter = "";
+      this.userNameFilter = "";
+      this.monthFilter = 0;
+      this.yearFilter = 0;
+      this.loading = false;
     },
   },
   getters: {
