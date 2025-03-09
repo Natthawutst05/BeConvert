@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" setup>
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useRegisterStore } from "@/stores/register_store";
@@ -16,6 +16,7 @@ const form = ref();
 const snackbar = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("error");
+const successDialog = ref(false);
 const userName = ref("");
 const userEmail = ref("");
 const userPassword = ref("");
@@ -53,8 +54,8 @@ const handleRegister = async () => {
     }
 
     if (response.message) {
-      showSnackbar(response.message, "success");
-      router.push("/login_page");
+      //showSnackbar(response.message, "success");
+      successDialog.value = true;
     } else {
       showSnackbar("สมัคสมาชิกไม่สำเร็จ!", "error");
     }
@@ -62,12 +63,27 @@ const handleRegister = async () => {
     alert(error.message);
   }
 };
+
+const goToLogin = () => {
+  successDialog.value = false;
+  router.push("/login_page");
+};
 </script>
 
 <template>
   <v-container>
     <v-card class="mx-auto mt-6" width="500">
-      <v-card-title class="text-h5 text-center">Register</v-card-title>
+      <template #prepend>
+        <img
+          src="../assets/images/icon-betask.png"
+          class="mr-2"
+          width="34"
+          height="28"
+        >
+      </template>
+      <template #title>
+        <span class="font-weight-black">Register</span>
+      </template>
 
       <v-form ref="form">
         <v-card-text>
@@ -126,7 +142,22 @@ const handleRegister = async () => {
       </v-form>
     </v-card>
   </v-container>
+
   <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="5000">
     {{ snackbarMessage }}
   </v-snackbar>
+
+  <!-- save success dialog -->
+  <v-dialog v-model="successDialog" max-width="400">
+    <v-card class="pa-6 text-center">
+      <v-col cols="12">
+        <v-icon size="100" color="success">mdi-check-circle</v-icon>
+      </v-col>
+      <h2 class="mt-4 text-h5">สมัคสมาชิกสำเร็จ!</h2>
+      <p class="mt-2">สร้างบัญชีผู้ใช้เรียบร้อย</p>
+      <v-card-actions class="justify-center mt-4">
+        <v-btn variant="tonal" width="100" color="success" @click="goToLogin">กลับสู่หน้า Login</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>

@@ -46,14 +46,3 @@ export async function addReportStatus(payload: any) {
     throw error;
   }
 }
-
-// ฟังก์ชันสำหรับดึงข้อมูลแถวที่เลือก
-export const fetchSingleUpdate = async (fileId: number): Promise<ResponseStandard> => {
-  try {
-    const response = await axios.get<ResponseStandard>(`${API_BASE_URL}/report/updatedata/${fileId}`); // เรียก API ที่ใช้ดึงข้อมูลของแถวที่เลือก
-    return response.data; // คืนค่าข้อมูลที่ดึงมา
-  } catch (error) {
-    console.error("Error fetching single update:", error);
-    throw error;
-  }
-};

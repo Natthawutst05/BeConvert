@@ -57,7 +57,15 @@ const goToRegister = () => {
 
 <template>
   <v-form ref="form">
-    <v-card class="mx-auto ma-6" prepend-icon="$vuetify" width="400">
+    <v-card class="mx-auto ma-6" width="400">
+      <template #prepend>
+          <img
+            src="../assets/images/icon-betask.png"
+            class="mr-2"
+            width="34"
+            height="28"
+          >
+        </template>
       <template #title>
         <span class="font-weight-black">Welcome to BeConvert</span>
       </template>
@@ -85,7 +93,7 @@ const goToRegister = () => {
         </v-btn>
         <!-- Register Page -->
         <hr class="mt-2 mb-2" />
-        <v-btn variant="tonal" class="w-100" @click="goToRegister">
+        <v-btn variant="outlined" color="grey" class="w-100" @click="goToRegister">
           Register
         </v-btn>
       </v-col>

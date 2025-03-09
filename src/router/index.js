@@ -20,6 +20,7 @@ const routes = [
       { path: "upload_file2_page", component: () => import("@/pages/upload_file2_page.vue") },
       { path: "report_page", component: () => import("@/pages/report_page.vue") },
       { path: "report2_page", component: () => import("@/pages/report2_page.vue") },
+      { path: "user_management_page", component: () => import("@/pages/user_management_page.vue") },
     ],
   },
   {

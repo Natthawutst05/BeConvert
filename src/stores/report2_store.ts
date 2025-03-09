@@ -48,12 +48,15 @@ export const useAccessReportStore = defineStore('ReportAccessData', {
       }
     },
     async saveReportStatus(payload: any) {
+      this.loading = true;
       try {
         const result = await addReportStatus(payload);
         return result;
       } catch (error) {
         console.error("Error saving report status:", error);
         throw error;
+      } finally {
+        this.loading = false;
       }
     },
     mergeReportData() {

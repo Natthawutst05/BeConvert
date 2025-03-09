@@ -19,10 +19,14 @@ const menuItems = computed(() => {
     { text: "Access Report", icon: "ri-file-text-line mr-2", to: "/report2_page" },
   ];
 
+  if (loginStore.authUser?.userRole === "Admin") {
+    items.push({ text: "User Management", icon: "ri-group-line mr-2", to: "/user_management_page" });
+  }
+
   if (isSAdmin.value) {
     items.push(
-      { text: "Upload SlowQuery File", icon: "ri-upload-line mr-2", to: "/upload_file_page" },
-      { text: "Upload Access File", icon: "ri-upload-line mr-2", to: "/upload_file2_page" }
+      { text: "Upload SlowQuery File", icon: "ri-upload-2-line mr-2", to: "/upload_file_page" },
+      { text: "Upload Access File", icon: "ri-upload-2-line mr-2", to: "/upload_file2_page" },
     );
   }
 
@@ -58,7 +62,7 @@ const handleLogout = async () => {
     @click="rail = false"
   >
     <v-list>
-      <v-list-item title="BeTask">
+      <v-list-item title="BeConvert">
         <template #prepend>
           <img
             src="../assets/images/icon-betask.png"

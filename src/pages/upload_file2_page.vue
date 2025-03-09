@@ -1,15 +1,16 @@
 <script lang="ts" setup>
 import { ref } from "vue";
 import { storeToRefs } from "pinia";
-import { useRouter } from "vue-router";
 import { useFileAccessUploadStore } from "../stores/fileupload2_store";
 import { useLoginStore } from "../stores/auth_store";
 
 const fileUploadStore = useFileAccessUploadStore();
 const loginStore = useLoginStore();
 const { setFileRows, uploadData } = useFileAccessUploadStore();
-const { fileRows } = storeToRefs(fileUploadStore);
-const router = useRouter();
+const { fileRows, loading } = storeToRefs(fileUploadStore);
+
+// dialog
+const successDialog = ref(false);
 
 //SnackBar
 const snackbar = ref(false);
@@ -140,7 +141,8 @@ const handleUploadData = async () => {
         result.duplicateRows > 0 ? "warning" : "success"
       );
     } else {
-      showSnackbar("อัพโหลดข้อมูลสำเร็จ!", "success");
+      //showSnackbar("อัพโหลดข้อมูลสำเร็จ!", "success");
+      successDialog.value = true;
     }
 
     console.log("Upload result:", result);
@@ -158,70 +160,95 @@ const clearFileRows = () => {
 
 <template>
   <v-col cols="12">
-    <h1 class="text-2xl font-bold mb-4">Upload File Access (.log)</h1>
+    <h1 class="text-2xl font-bold">Upload File Access (.log)</h1>
+  </v-col>
+  <v-card class="pa-4 ma-4">
+      <!-- File Input -->
+      <v-row>
+        <v-col cols="11">
+          <v-file-input
+            clearable
+            label="Select a file"
+            variant="outlined"
+            accept=".log"
+            @change="handleFileUpload"
+          />
+        </v-col>
+        <v-col cols="1" class="d-flex justify-center pl-0">
+          <v-btn variant="tonal" prepend-icon="$vuetify" height="55px" @click="clearFileRows">
+            Cancel
+          </v-btn>
+        </v-col>
+      </v-row>
 
-    <!-- File Input -->
-    <v-row>
-      <v-col cols="11">
-        <v-file-input
-          clearable
-          label="Select a file"
-          variant="outlined"
-          accept=".log"
-          @change="handleFileUpload"
-        />
-      </v-col>
-      <v-col cols="1" class="d-flex justify-center pl-0">
-        <v-btn prepend-icon="$vuetify" height="55px" @click="clearFileRows">
-          Cancel
+      <!-- Data Table -->
+      <v-data-table
+        v-if="fileRows.length > 0"
+        :items="fileRows"
+        :headers="headers"
+        item-value="index"
+        class="elevation-1"
+      >
+        <template #item.index="{ item }">
+          {{ item.index }}
+        </template>
+
+        <template #item.urlBefore="{ item }">
+          <span v-if="item.urlBefore.length <= 25">
+            {{ item.urlBefore }}
+          </span>
+          <span v-else>
+            {{ truncateSQLQuery(item.urlBefore) }}
+            <v-tooltip bottom>
+              <template #activator="{ props }">
+                <span
+                  class="text-blue-500 underline cursor-pointer"
+                  v-bind="props"
+                >
+                  More
+                </span>
+              </template>
+              <span>{{ item.urlBefore }}</span>
+            </v-tooltip>
+          </span>
+        </template>
+      </v-data-table>
+      <v-col cols="12" class="pb-0 pl-0 pr-0">
+        <v-btn
+          prepend-icon="$vuetify"
+          class="w-100"
+          height="55px"
+          variant="tonal"
+          @click="handleUploadData"
+        >
+          Upload Data
         </v-btn>
       </v-col>
-    </v-row>
-
-    <!-- Data Table -->
-    <v-data-table
-      v-if="fileRows.length > 0"
-      :items="fileRows"
-      :headers="headers"
-      item-value="index"
-      class="elevation-1"
-    >
-      <template #item.index="{ item }">
-        {{ item.index }}
-      </template>
-
-      <template #item.urlBefore="{ item }">
-        <span v-if="item.urlBefore.length <= 25">
-          {{ item.urlBefore }}
-        </span>
-        <span v-else>
-          {{ truncateSQLQuery(item.urlBefore) }}
-          <v-tooltip bottom>
-            <template #activator="{ props }">
-              <span
-                class="text-blue-500 underline cursor-pointer"
-                v-bind="props"
-              >
-                More
-              </span>
-            </template>
-            <span>{{ item.urlBefore }}</span>
-          </v-tooltip>
-        </span>
-      </template>
-    </v-data-table>
-    <v-col cols="12" class="pb-0 pl-0 pr-0">
-      <v-btn
-        prepend-icon="$vuetify"
-        class="w-100"
-        height="55px"
-        @click="handleUploadData"
-      >
-        Upload Data
-      </v-btn>
-    </v-col>
-  </v-col>
+  </v-card>
+  <!-- snackbar -->
   <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="5000">
     {{ snackbarMessage }}
   </v-snackbar>
+
+  <!-- upload success dialog -->
+  <v-dialog v-model="successDialog" max-width="400">
+    <v-card class="pa-6 text-center">
+      <v-col cols="12">
+        <v-icon size="100" color="success">mdi-check-circle</v-icon>
+      </v-col>
+      <h2 class="mt-4 text-h5">บันทึกข้อมูลสำเร็จ!</h2>
+      <p class="mt-2">ข้อมูลถูกเพิ่มเรียบร้อย</p>
+      <v-card-actions class="justify-center mt-4">
+        <v-btn variant="tonal" width="100" color="success" @click="successDialog = false">OK</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Loading -->
+  <v-dialog v-model="loading" persistent width="300">
+    <v-card class="pa-4 d-flex flex-column align-center">
+      <v-progress-circular indeterminate size="50" color="primary" />
+      <p class="mt-3">กำลังบันทึกข้อมูล...</p>
+    </v-card>
+  </v-dialog>
 </template>

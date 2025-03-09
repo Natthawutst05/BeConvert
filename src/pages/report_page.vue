@@ -31,6 +31,7 @@ const dateProcessDialog = ref(false);
 const assignDateStartDialog = ref(false);
 const assignDateEndDialog = ref(false);
 const isDialogOpen = computed(() => activeDialogId.value !== null);
+const successDialog = ref(false);
 
 //ตรวจสอบ Role
 const isAdmin = computed(() => loginStore.authUser?.userRole === "Admin");
@@ -200,7 +201,6 @@ const selectRow = (row: any) => {
   const updateItem = updateDataMap.value.get(row.fileId) || {};
   Object.assign(selectedRow, { ...row, ...updateItem });
 
-  // selectedRow.fileComment = "";
   previousFileStatus.value = selectedRow.fileStatus;
 
   dateProcessModel.value = selectedRow.dateProcess
@@ -285,7 +285,8 @@ const saveDialogData = async () => {
     await reportStore.fetchAllReportData();
 
     console.log("Data saved successfully!");
-    showSnackbar("บันทึกข้อมูลสำเร็จ!", "success");
+    //showSnackbar("บันทึกข้อมูลสำเร็จ!", "success");
+    successDialog.value = true;
     activeDialogId.value = null;
   } catch (error) {
     console.error("Error saving data:", error);
@@ -346,7 +347,6 @@ onMounted(async () => {
           :color="getCardColor('Wait')"
           @click="clickActiveCard('Wait')"
         >
-          <p class="pa-4">Click</p>
           <template v-slot:append>
             <v-avatar color="primary" rounded>
               <v-icon class="ri-chat-3-line"></v-icon>
@@ -362,7 +362,6 @@ onMounted(async () => {
           :color="getCardColor('Confirm')"
           @click="clickActiveCard('Confirm')"
         >
-          <p class="pa-4">Click</p>
           <template v-slot:append>
             <v-avatar color="success" rounded>
               <v-icon class="ri-chat-3-line"></v-icon>
@@ -378,7 +377,6 @@ onMounted(async () => {
           :color="getCardColor('Process')"
           @click="clickActiveCard('Process')"
         >
-          <p class="pa-4">Click</p>
           <template v-slot:append>
             <v-avatar color="warning" rounded>
               <v-icon class="ri-chat-3-line"></v-icon>
@@ -394,7 +392,6 @@ onMounted(async () => {
           :color="getCardColor('Cancel')"
           @click="clickActiveCard('Cancel')"
         >
-          <p class="pa-4">Click</p>
           <template v-slot:append>
             <v-avatar color="error" rounded>
               <v-icon class="ri-chat-3-line"></v-icon>
@@ -457,6 +454,7 @@ onMounted(async () => {
         :headers="headers"
         item-value="index"
         class="elevation-1"
+        style="min-height: 690px;"
       >
         <!-- Timestamp -->
         <template #item.setTimestamp="{ item }">
@@ -722,6 +720,9 @@ onMounted(async () => {
           </v-dialog>
         </template>
       </v-data-table>
+      <!-- <v-btn @click="successDialog = true">
+        Button
+      </v-btn> -->
     </v-card>
   </v-col>
 
@@ -730,11 +731,25 @@ onMounted(async () => {
     {{ snackbarMessage }}
   </v-snackbar>
 
+  <!-- save success dialog -->
+  <v-dialog v-model="successDialog" max-width="400">
+    <v-card class="pa-6 text-center">
+      <v-col cols="12">
+        <v-icon size="100" color="success">mdi-check-circle</v-icon>
+      </v-col>
+      <h2 class="mt-4 text-h5">บันทึกข้อมูลสำเร็จ!</h2>
+      <p class="mt-2">ข้อมูลได้รับการอัปเดตเรียบร้อย</p>
+      <v-card-actions class="justify-center mt-4">
+        <v-btn variant="tonal" width="100" color="success" @click="successDialog = false">OK</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
   <!-- Loading -->
   <v-dialog v-model="loading" persistent width="300">
     <v-card class="pa-4 d-flex flex-column align-center">
       <v-progress-circular indeterminate size="50" color="primary" />
-      <p class="mt-3">กำลังบันทึกข้อมูล...</p>
+      <p class="mt-3">Loading...</p>
     </v-card>
   </v-dialog>
 </template>
